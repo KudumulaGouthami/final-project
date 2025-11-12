@@ -45,46 +45,24 @@ st.markdown("""
 
 # -------------------- QUIZ QUESTIONS --------------------
 quiz = [
-    {
-        "question": "Which language is known as the brain of the computer?",
-        "options": ["Python", "C", "Java", "CPU"],
-        "answer": "CPU"
-    },
-    {
-        "question": "Which of these is a Python web framework?",
-        "options": ["Django", "TensorFlow", "NumPy", "Pandas"],
-        "answer": "Django"
-    },
-    {
-        "question": "HTML stands for?",
-        "options": [
-            "Hyper Trainer Marking Language",
-            "Hyper Text Markup Language",
-            "Hyper Text Markdown Language",
-            "None of these"
-        ],
-        "answer": "Hyper Text Markup Language"
-    },
-    {
-        "question": "What does CSS stand for?",
-        "options": [
-            "Cascading Style Sheets",
-            "Computer Style Sheet",
-            "Creative Style System",
-            "Colorful Style Sheet"
-        ],
-        "answer": "Cascading Style Sheets"
-    },
-    {
-        "question": "Which of the following is a database?",
-        "options": ["MySQL", "NumPy", "React", "Pandas"],
-        "answer": "MySQL"
-    }
+    {"question": "Which language is known as the brain of the computer?",
+     "options": ["Python", "C", "Java", "CPU"], "answer": "CPU"},
+    {"question": "Which of these is a Python web framework?",
+     "options": ["Django", "TensorFlow", "NumPy", "Pandas"], "answer": "Django"},
+    {"question": "HTML stands for?",
+     "options": ["Hyper Trainer Marking Language", "Hyper Text Markup Language",
+                 "Hyper Text Markdown Language", "None of these"], "answer": "Hyper Text Markup Language"},
+    {"question": "What does CSS stand for?",
+     "options": ["Cascading Style Sheets", "Computer Style Sheet",
+                 "Creative Style System", "Colorful Style Sheet"], "answer": "Cascading Style Sheets"},
+    {"question": "Which of the following is a database?",
+     "options": ["MySQL", "NumPy", "React", "Pandas"], "answer": "MySQL"}
 ]
 
 # -------------------- FILES --------------------
 USER_FILE = "users.json"
 LEADERBOARD_FILE = "leaderboard.json"
+
 
 def load_data(file):
     if os.path.exists(file):
@@ -92,9 +70,11 @@ def load_data(file):
             return json.load(f)
     return {}
 
+
 def save_data(file, data):
     with open(file, "w") as f:
         json.dump(data, f, indent=4)
+
 
 users = load_data(USER_FILE)
 leaderboard = load_data(LEADERBOARD_FILE)
@@ -103,6 +83,7 @@ leaderboard = load_data(LEADERBOARD_FILE)
 if "user" not in st.session_state:
     st.session_state.user = None
 
+
 def register_user(username, password):
     if username in users:
         return False, "⚠️ Username already exists."
@@ -110,11 +91,13 @@ def register_user(username, password):
     save_data(USER_FILE, users)
     return True, "✅ Registration successful! Please login."
 
+
 def login_user(username, password):
     if username in users and users[username]["password"] == password:
         st.session_state.user = username
         return True, "✅ Login successful!"
     return False, "❌ Invalid username or password."
+
 
 # -------------------- BACKGROUND MUSIC --------------------
 st.markdown("""
@@ -150,10 +133,9 @@ else:
     st.sidebar.success(f"👤 Logged in as: {st.session_state.user}")
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user = None
-        st.session_state.page = 0
-        st.session_state.score = 0
-        st.session_state.answers = {}
-        st.session_state.timer = 15
+        for key in ["page", "score", "answers", "timer", "start_time"]:
+            if key in st.session_state:
+                del st.session_state[key]
         st.rerun()
 
     # -------------------- QUIZ LOGIC --------------------
@@ -204,18 +186,24 @@ else:
         st.success("🎉 Quiz Completed!")
         st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
 
-        # Save user score
         username = st.session_state.user
+
+        # ✅ Prevent KeyError: ensure username exists in file
+        if username not in users:
+            users[username] = {"password": "", "scores": []}
+
         score_data = {
             "score": st.session_state.score,
             "total": total_questions,
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
-        users[username]["scores"].append(score_data)
+
+        # Save score safely
+        users[username].setdefault("scores", []).append(score_data)
         save_data(USER_FILE, users)
 
         # Update leaderboard
-        leaderboard[username] = max([s["score"] for s in users[username]["scores"]])
+        leaderboard[username] = max(s["score"] for s in users[username]["scores"])
         save_data(LEADERBOARD_FILE, leaderboard)
 
         # -------------------- LEADERBOARD --------------------
@@ -224,14 +212,13 @@ else:
         for rank, (user, score) in enumerate(sorted_lb[:5], 1):
             st.write(f"{rank}. **{user}** — {score} points")
 
-        # Past scores
+        # -------------------- USER HISTORY --------------------
         st.markdown("### 📊 Your Past Scores:")
         for entry in users[username]["scores"]:
             st.write(f"🕒 {entry['date']} — **{entry['score']} / {entry['total']}**")
 
         if st.button("🔁 Restart Quiz"):
-            st.session_state.page = 0
-            st.session_state.score = 0
-            st.session_state.answers = {}
-            st.session_state.start_time = time.time()
+            for key in ["page", "score", "answers", "start_time"]:
+                if key in st.session_state:
+                    del st.session_state[key]
             st.rerun()
