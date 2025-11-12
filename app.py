@@ -8,37 +8,41 @@ from datetime import datetime
 st.set_page_config(
     page_title="Quiz Application",
     page_icon="🧩",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
 # -------------------- CUSTOM STYLES --------------------
 st.markdown("""
     <style>
+        body {
+            background: linear-gradient(135deg, #b3e5fc 0%, #e1f5fe 100%);
+        }
         .main {
-            background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%);
+            background-color: #ffffff;
             padding: 2rem;
-            border-radius: 15px;
-        }
-        .stButton>button {
-            background-color: #007BFF;
-            color: white;
-            border-radius: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            transition: 0.3s;
-        }
-        .stButton>button:hover {
-            background-color: #0056b3;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
         h1, h2, h3 {
             text-align: center;
             color: #333333;
         }
         .timer {
-            color: red;
+            color: #e53935;
             font-weight: bold;
+            font-size: 20px;
             text-align: center;
+        }
+        .stButton>button {
+            background-color: #007BFF;
+            color: white;
+            border-radius: 10px;
+            padding: 8px 18px;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #0056b3;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -139,7 +143,7 @@ else:
         st.rerun()
 
     # -------------------- QUIZ LOGIC --------------------
-    st.title("🎯 Advanced Quiz Application")
+    st.title("🎯 Quiz Application")
     st.markdown("### Test your knowledge with timer, music & leaderboard!")
 
     if "page" not in st.session_state:
@@ -148,18 +152,23 @@ else:
         st.session_state.score = 0
     if "answers" not in st.session_state:
         st.session_state.answers = {}
-    if "timer" not in st.session_state:
-        st.session_state.timer = 15
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
 
     page = st.session_state.page
     total_questions = len(quiz)
+    timer_limit = 15
 
-    # -------------------- TIMER --------------------
+    # -------------------- LIVE TIMER --------------------
     elapsed = int(time.time() - st.session_state.start_time)
-    remaining = max(0, 15 - elapsed)
+    remaining = max(0, timer_limit - elapsed)
     st.markdown(f"<p class='timer'>⏳ Time left: {remaining} seconds</p>", unsafe_allow_html=True)
+
+    # ⏱ Auto-refresh every second to update timer
+    if remaining > 0:
+        st.experimental_rerun = st.empty()
+        time.sleep(1)
+        st.rerun()
 
     if remaining == 0:
         st.warning("⏰ Time's up! Moving to next question...")
@@ -187,8 +196,6 @@ else:
         st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
 
         username = st.session_state.user
-
-        # ✅ Prevent KeyError: ensure username exists in file
         if username not in users:
             users[username] = {"password": "", "scores": []}
 
@@ -198,11 +205,9 @@ else:
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        # Save score safely
         users[username].setdefault("scores", []).append(score_data)
         save_data(USER_FILE, users)
 
-        # Update leaderboard
         leaderboard[username] = max(s["score"] for s in users[username]["scores"])
         save_data(LEADERBOARD_FILE, leaderboard)
 
