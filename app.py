@@ -1,45 +1,51 @@
 
+
 import streamlit as st
 import json
 import os
 import time
 from datetime import datetime
+import streamlit.components.v1 as components
 
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
     page_title="Quiz Application",
     page_icon="🧩",
-    layout="centered",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
 # -------------------- CUSTOM STYLES --------------------
 st.markdown("""
     <style>
+        body {
+            background: linear-gradient(135deg, #b3e5fc 0%, #e1f5fe 100%);
+        }
         .main {
-            background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%);
+            background-color: #ffffff;
             padding: 2rem;
-            border-radius: 15px;
-        }
-        .stButton>button {
-            background-color: #007BFF;
-            color: white;
-            border-radius: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            transition: 0.3s;
-        }
-        .stButton>button:hover {
-            background-color: #0056b3;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
         h1, h2, h3 {
             text-align: center;
             color: #333333;
         }
         .timer {
-            color: red;
+            color: #e53935;
             font-weight: bold;
+            font-size: 20px;
             text-align: center;
+        }
+        .stButton>button {
+            background-color: #007BFF;
+            color: white;
+            border-radius: 10px;
+            padding: 8px 18px;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #0056b3;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -107,24 +113,41 @@ st.markdown("""
     </audio>
 """, unsafe_allow_html=True)
 
+# -------------------- HANDLE auto_next param (triggered by client JS) --------------------
+params = st.experimental_get_query_params()
+if "auto_next" in params:
+    # advance page automatically (record no answer)
+    if "page" in st.session_state:
+        # record unanswered as None so we keep history consistent
+        idx = st.session_state.get("page", 0)
+        st.session_state.answers[idx] = None
+        st.session_state.page = idx + 1
+    else:
+        st.session_state.page = 1
+    # reset start time for next question
+    st.session_state.start_time = time.time()
+    # clear query params and rerun
+    st.experimental_set_query_params()
+    st.experimental_rerun()
+
 # -------------------- LOGIN PAGE --------------------
 if st.session_state.user is None:
     st.title("🧩 Welcome to the Quiz App")
     menu = st.radio("Select Option:", ["Login", "Register"])
 
     if menu == "Login":
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
         if st.button("Login"):
             success, message = login_user(username, password)
             st.info(message)
             if success:
                 time.sleep(1)
-                st.rerun()
+                st.experimental_rerun()
 
     elif menu == "Register":
-        username = st.text_input("Choose Username")
-        password = st.text_input("Choose Password", type="password")
+        username = st.text_input("Choose Username", key="reg_username")
+        password = st.text_input("Choose Password", type="password", key="reg_password")
         if st.button("Register"):
             success, message = register_user(username, password)
             st.info(message)
@@ -134,62 +157,36 @@ else:
     st.sidebar.success(f"👤 Logged in as: {st.session_state.user}")
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user = None
-        for key in ["page", "score", "answers", "timer", "start_time"]:
+        for key in ["page", "score", "answers", "start_time"]:
             if key in st.session_state:
                 del st.session_state[key]
-        st.rerun()
+        st.experimental_rerun()
 
     # -------------------- QUIZ LOGIC --------------------
-    st.title("🎯 Advanced Quiz Application")
+    st.title("🎯 Quiz Application")
     st.markdown("### Test your knowledge with timer, music & leaderboard!")
 
+    # initialize session state keys
     if "page" not in st.session_state:
         st.session_state.page = 0
     if "score" not in st.session_state:
         st.session_state.score = 0
     if "answers" not in st.session_state:
         st.session_state.answers = {}
-    if "timer" not in st.session_state:
-        st.session_state.timer = 15
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
 
     page = st.session_state.page
     total_questions = len(quiz)
+    timer_limit = 15  # seconds per question
 
-    # -------------------- TIMER --------------------
-    elapsed = int(time.time() - st.session_state.start_time)
-    remaining = max(0, 15 - elapsed)
-    st.markdown(f"<p class='timer'>⏳ Time left: {remaining} seconds</p>", unsafe_allow_html=True)
-
-    if remaining == 0:
-        st.warning("⏰ Time's up! Moving to next question...")
-        st.session_state.page += 1
-        st.session_state.start_time = time.time()
-        st.rerun()
-
-    if page < total_questions:
-        question = quiz[page]
-        st.markdown(f"### Q{page+1}. {question['question']}")
-        choice = st.radio("Choose an answer:", question["options"], key=f"q{page}")
-
-        if st.button("Next ➡️"):
-            st.session_state.answers[page] = choice
-            if choice == question["answer"]:
-                st.session_state.score += 1
-            st.session_state.page += 1
-            st.session_state.start_time = time.time()
-            st.rerun()
-
-    else:
-        # -------------------- RESULT --------------------
+    # If all questions done, show results
+    if page >= total_questions:
         st.balloons()
         st.success("🎉 Quiz Completed!")
         st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
 
         username = st.session_state.user
-
-        # ✅ Prevent KeyError: ensure username exists in file
         if username not in users:
             users[username] = {"password": "", "scores": []}
 
@@ -199,7 +196,6 @@ else:
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
-        # Save score safely
         users[username].setdefault("scores", []).append(score_data)
         save_data(USER_FILE, users)
 
@@ -207,13 +203,13 @@ else:
         leaderboard[username] = max(s["score"] for s in users[username]["scores"])
         save_data(LEADERBOARD_FILE, leaderboard)
 
-        # -------------------- LEADERBOARD --------------------
+        # Leaderboard display
         st.subheader("🏆 Leaderboard (Top 5)")
         sorted_lb = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
         for rank, (user, score) in enumerate(sorted_lb[:5], 1):
             st.write(f"{rank}. **{user}** — {score} points")
 
-        # -------------------- USER HISTORY --------------------
+        # Past scores
         st.markdown("### 📊 Your Past Scores:")
         for entry in users[username]["scores"]:
             st.write(f"🕒 {entry['date']} — **{entry['score']} / {entry['total']}**")
@@ -222,4 +218,56 @@ else:
             for key in ["page", "score", "answers", "start_time"]:
                 if key in st.session_state:
                     del st.session_state[key]
-            st.rerun()
+            st.experimental_rerun()
+        st.stop()
+
+    # Show question
+    question = quiz[page]
+    st.markdown(f"### Q{page+1}. {question['question']}")
+
+    # compute remaining time (server-side)
+    elapsed = int(time.time() - st.session_state.start_time)
+    remaining = max(0, timer_limit - elapsed)
+
+    # Show JS-driven live timer and auto-redirect when time hits 0
+    # We pass the remaining seconds and the auto-next URL param.
+    # The JS counts down on the client; when it reaches 0 it sets ?auto_next=1 which we handled above.
+    js_html = f"""
+    <div style="text-align:center; font-weight:bold; font-size:20px; color:#e53935;">
+      ⏳ Time left: <span id="countdown">{remaining}</span> seconds
+    </div>
+    <script>
+      const start = Date.now();
+      let remaining = {remaining};
+      const el = document.getElementById("countdown");
+      // update display every second
+      const interval = setInterval(() => {{
+          remaining -= 1;
+          if (remaining <= 0) {{
+              el.innerText = 0;
+              clearInterval(interval);
+              // redirect to same page adding auto_next param to trigger server-side advance
+              const url = new URL(window.location.href);
+              url.searchParams.set('auto_next', '1');
+              window.location.href = url.toString();
+          }} else {{
+              el.innerText = remaining;
+          }}
+      }}, 1000);
+    </script>
+    """
+    components.html(js_html, height=60)
+
+    # present options
+    choice = st.radio("Choose an answer:", question["options"], key=f"q{page}")
+
+    # If user clicks Next: record answer and advance
+    if st.button("Next ➡️"):
+        st.session_state.answers[page] = choice
+        if choice == question["answer"]:
+            st.session_state.score += 1
+        st.session_state.page += 1
+        st.session_state.start_time = time.time()
+        # remove any auto_next param if present (defensive)
+        st.experimental_set_query_params()
+        st.experimental_rerun()
