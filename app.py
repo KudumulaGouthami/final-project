@@ -3,7 +3,10 @@
 
 
 import streamlit as st
-import json, os, time, random
+import json
+import os
+import time
+import random
 from datetime import datetime
 import streamlit.components.v1 as components
 
@@ -179,7 +182,7 @@ if st.session_state.get("quiz") is None:
     cat = st.selectbox("📚 Select Category", list(quizzes.keys()))
     diff = st.selectbox("🎚️ Select Difficulty", ["Easy", "Medium", "Hard"])
     max_q = len(quizzes[cat])
-    num_q = st.number_input(f"Number of questions (1 to {max_q})", 1, max_q, 5)
+    num_q = st.number_input(f"Number of questions (1 to {max_q})", 1, max_q, min(5, max_q))
 
     if st.button("Start Quiz ▶️"):
         selected = random.sample(quizzes[cat], num_q)
@@ -201,12 +204,12 @@ timer_limit = {"Easy": 25, "Medium": 15, "Hard": 10}[st.session_state.get("diffi
 if page >= total:
     st.balloons()
     st.success(f"🎉 Quiz Completed — Score: {st.session_state.get('score',0)}/{total}")
-    percent = (st.session_state['score'] / total) * 100
+    percent = (st.session_state.get('score',0) / total) * 100
     feedback = "🌟 Excellent!" if percent == 100 else "👏 Great job!" if percent >= 75 else "🙂 Keep learning!" if percent >= 50 else "😅 Try again!"
     st.info(feedback)
     username = st.session_state.user
     users.setdefault(username, {"password": users.get(username, {}).get("password",""), "scores": []})
-    score_data = {"score": st.session_state['score'], "total": total, "category": st.session_state['category'], "difficulty": st.session_state['difficulty'], "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    score_data = {"score": st.session_state.get('score',0), "total": total, "category": st.session_state.get('category'), "difficulty": st.session_state.get('difficulty'), "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     users[username]["scores"].append(score_data)
     save_data(USER_FILE, users)
     leaderboard[username] = max(s["score"] for s in users[username]["scores"])
@@ -228,28 +231,37 @@ q = quiz[page]
 st.markdown(f"### Q{page+1}. {q['question']}")
 elapsed = int(time.time() - st.session_state.get("start_time", time.time()))
 remaining = max(0, timer_limit - elapsed)
-components.html(f"""
-<div class='timer'>⏳ Time Left: <span id='cd'>{remaining}</span> seconds</div>
+
+# Build JS safely with .format and escaped JS braces
+js = """
+<div class='timer'>⏳ Time Left: <span id='cd'>{}</span> seconds</div>
 <script>
-let t={remaining};
+let t={};
 const el=document.getElementById('cd');
-const interval=setInterval(()=>{
-    t--; 
-    if(t<=0){{ clearInterval(interval); window.location.reload(); }}
-    el.innerText=t;
-},1000);
+const interval=setInterval(function() {{
+    t--;
+    if (t <= 0) {{
+        clearInterval(interval);
+        // trigger auto-next by reloading with param
+        const url = new URL(window.location.href);
+        url.searchParams.set('auto_next', '1');
+        window.location.href = url.toString();
+    }}
+    el.innerText = t;
+}}, 1000);
 </script>
-""", height=70)
+""".format(remaining, remaining)
+
+components.html(js, height=90)
+
 choice = st.radio("Choose an answer:", q["options"], key=f"q{page}")
 if st.button("Next ➡️"):
     st.session_state.answers[page] = choice
     if choice == q["answer"]:
-        st.session_state.score += 1
+        st.session_state.score = st.session_state.get("score", 0) + 1
         st.success("✅ Correct!")
     else:
         st.error(f"❌ Wrong! Correct answer: {q['answer']}")
-    st.session_state.page += 1
+    st.session_state.page = page + 1
     st.session_state.start_time = time.time()
     st.rerun()
-
-
