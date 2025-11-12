@@ -70,18 +70,15 @@ quiz = [
 USER_FILE = "users.json"
 LEADERBOARD_FILE = "leaderboard.json"
 
-
 def load_data(file):
     if os.path.exists(file):
         with open(file, "r") as f:
             return json.load(f)
     return {}
 
-
 def save_data(file, data):
     with open(file, "w") as f:
         json.dump(data, f, indent=4)
-
 
 users = load_data(USER_FILE)
 leaderboard = load_data(LEADERBOARD_FILE)
@@ -90,7 +87,6 @@ leaderboard = load_data(LEADERBOARD_FILE)
 if "user" not in st.session_state:
     st.session_state.user = None
 
-
 def register_user(username, password):
     if username in users:
         return False, "⚠️ Username already exists."
@@ -98,20 +94,21 @@ def register_user(username, password):
     save_data(USER_FILE, users)
     return True, "✅ Registration successful! Please login."
 
-
 def login_user(username, password):
     if username in users and users[username]["password"] == password:
         st.session_state.user = username
         return True, "✅ Login successful!"
     return False, "❌ Invalid username or password."
 
-
-# -------------------- BACKGROUND MUSIC --------------------
-st.markdown("""
-    <audio autoplay loop>
-        <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_7e7e77b1b0.mp3" type="audio/mpeg">
-    </audio>
-""", unsafe_allow_html=True)
+# -------------------- BACKGROUND MUSIC TOGGLE --------------------
+st.sidebar.markdown("🎵 **Background Music Control**")
+music_on = st.sidebar.checkbox("Play Music", value=True)
+if music_on:
+    st.markdown("""
+        <audio autoplay loop>
+            <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_7e7e77b1b0.mp3" type="audio/mpeg">
+        </audio>
+    """, unsafe_allow_html=True)
 
 # -------------------- AUTO-NEXT HANDLER --------------------
 params = st.query_params
@@ -181,6 +178,17 @@ else:
         st.balloons()
         st.success("🎉 Quiz Completed!")
         st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
+
+        # 🎯 AI Feedback based on performance
+        score_percent = (st.session_state.score / total_questions) * 100
+        if score_percent == 100:
+            st.success("🤖 Excellent! Perfect Score! 🌟 You're a Quiz Master!")
+        elif score_percent >= 70:
+            st.info("💪 Great job! You have strong knowledge.")
+        elif score_percent >= 40:
+            st.warning("🙂 Good try! A bit more practice and you’ll nail it.")
+        else:
+            st.error("😅 Keep learning! You’ll improve with more practice.")
 
         username = st.session_state.user
         if username not in users:
