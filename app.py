@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 import time
+from datetime import datetime
 
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
@@ -15,12 +16,12 @@ st.set_page_config(
 st.markdown("""
     <style>
         .main {
-            background: linear-gradient(135deg, #d6f0ff 0%, #ffffff 100%);
+            background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%);
             padding: 2rem;
             border-radius: 15px;
         }
         .stButton>button {
-            background-color: #4CAF50;
+            background-color: #007BFF;
             color: white;
             border-radius: 10px;
             padding: 10px 20px;
@@ -28,11 +29,16 @@ st.markdown("""
             transition: 0.3s;
         }
         .stButton>button:hover {
-            background-color: #45a049;
+            background-color: #0056b3;
         }
         h1, h2, h3 {
             text-align: center;
             color: #333333;
+        }
+        .timer {
+            color: red;
+            font-weight: bold;
+            text-align: center;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -76,30 +82,32 @@ quiz = [
     }
 ]
 
-# -------------------- USER DATA MANAGEMENT --------------------
+# -------------------- FILES --------------------
 USER_FILE = "users.json"
+LEADERBOARD_FILE = "leaderboard.json"
 
-def load_users():
-    if os.path.exists(USER_FILE):
-        with open(USER_FILE, "r") as f:
+def load_data(file):
+    if os.path.exists(file):
+        with open(file, "r") as f:
             return json.load(f)
     return {}
 
-def save_users(users):
-    with open(USER_FILE, "w") as f:
-        json.dump(users, f)
+def save_data(file, data):
+    with open(file, "w") as f:
+        json.dump(data, f, indent=4)
 
-# -------------------- LOGIN & REGISTRATION --------------------
-users = load_users()
+users = load_data(USER_FILE)
+leaderboard = load_data(LEADERBOARD_FILE)
 
+# -------------------- LOGIN / REGISTER --------------------
 if "user" not in st.session_state:
     st.session_state.user = None
 
 def register_user(username, password):
     if username in users:
         return False, "⚠️ Username already exists."
-    users[username] = {"password": password}
-    save_users(users)
+    users[username] = {"password": password, "scores": []}
+    save_data(USER_FILE, users)
     return True, "✅ Registration successful! Please login."
 
 def login_user(username, password):
@@ -107,6 +115,13 @@ def login_user(username, password):
         st.session_state.user = username
         return True, "✅ Login successful!"
     return False, "❌ Invalid username or password."
+
+# -------------------- BACKGROUND MUSIC --------------------
+st.markdown("""
+    <audio autoplay loop>
+        <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_7e7e77b1b0.mp3" type="audio/mpeg">
+    </audio>
+""", unsafe_allow_html=True)
 
 # -------------------- LOGIN PAGE --------------------
 if st.session_state.user is None:
@@ -131,17 +146,19 @@ if st.session_state.user is None:
             st.info(message)
 
 else:
-    # -------------------- QUIZ LOGIC --------------------
-    st.sidebar.write(f"👤 Logged in as: **{st.session_state.user}**")
+    # -------------------- SIDEBAR --------------------
+    st.sidebar.success(f"👤 Logged in as: {st.session_state.user}")
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user = None
         st.session_state.page = 0
         st.session_state.score = 0
         st.session_state.answers = {}
+        st.session_state.timer = 15
         st.rerun()
 
-    st.title("🎯 Welcome to the Quiz Application")
-    st.markdown("### Test your knowledge and see your score instantly!")
+    # -------------------- QUIZ LOGIC --------------------
+    st.title("🎯 Advanced Quiz Application")
+    st.markdown("### Test your knowledge with timer, music & leaderboard!")
 
     if "page" not in st.session_state:
         st.session_state.page = 0
@@ -149,35 +166,72 @@ else:
         st.session_state.score = 0
     if "answers" not in st.session_state:
         st.session_state.answers = {}
+    if "timer" not in st.session_state:
+        st.session_state.timer = 15
+    if "start_time" not in st.session_state:
+        st.session_state.start_time = time.time()
 
     page = st.session_state.page
     total_questions = len(quiz)
 
+    # -------------------- TIMER --------------------
+    elapsed = int(time.time() - st.session_state.start_time)
+    remaining = max(0, 15 - elapsed)
+    st.markdown(f"<p class='timer'>⏳ Time left: {remaining} seconds</p>", unsafe_allow_html=True)
+
+    if remaining == 0:
+        st.warning("⏰ Time's up! Moving to next question...")
+        st.session_state.page += 1
+        st.session_state.start_time = time.time()
+        st.rerun()
+
     if page < total_questions:
         question = quiz[page]
         st.markdown(f"### Q{page+1}. {question['question']}")
-        choice = st.radio("Choose an answer:", question["options"], key=page)
+        choice = st.radio("Choose an answer:", question["options"], key=f"q{page}")
 
         if st.button("Next ➡️"):
             st.session_state.answers[page] = choice
             if choice == question["answer"]:
                 st.session_state.score += 1
             st.session_state.page += 1
+            st.session_state.start_time = time.time()
             st.rerun()
+
     else:
+        # -------------------- RESULT --------------------
         st.balloons()
         st.success("🎉 Quiz Completed!")
         st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
 
-        if st.session_state.score == total_questions:
-            st.markdown("🌟 Perfect! You got all answers correct!")
-        elif st.session_state.score >= total_questions / 2:
-            st.markdown("👍 Great job! Keep it up!")
-        else:
-            st.markdown("💡 Keep practicing to improve your score!")
+        # Save user score
+        username = st.session_state.user
+        score_data = {
+            "score": st.session_state.score,
+            "total": total_questions,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        users[username]["scores"].append(score_data)
+        save_data(USER_FILE, users)
+
+        # Update leaderboard
+        leaderboard[username] = max([s["score"] for s in users[username]["scores"]])
+        save_data(LEADERBOARD_FILE, leaderboard)
+
+        # -------------------- LEADERBOARD --------------------
+        st.subheader("🏆 Leaderboard (Top 5)")
+        sorted_lb = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
+        for rank, (user, score) in enumerate(sorted_lb[:5], 1):
+            st.write(f"{rank}. **{user}** — {score} points")
+
+        # Past scores
+        st.markdown("### 📊 Your Past Scores:")
+        for entry in users[username]["scores"]:
+            st.write(f"🕒 {entry['date']} — **{entry['score']} / {entry['total']}**")
 
         if st.button("🔁 Restart Quiz"):
             st.session_state.page = 0
             st.session_state.score = 0
             st.session_state.answers = {}
+            st.session_state.start_time = time.time()
             st.rerun()
