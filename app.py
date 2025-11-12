@@ -9,10 +9,11 @@ st.set_page_config(page_title="Smart Quiz App", page_icon="🎯", layout="center
 # ---------------- CSS STYLES ----------------
 st.markdown("""
 <style>
+/* ---- Global Background ---- */
 body {
-    background: linear-gradient(-45deg, #f9d423, #ff4e50, #a1c4fd, #c2e9fb);
+    background: linear-gradient(-45deg, #ffecd2, #fcb69f, #a1c4fd, #c2e9fb);
     background-size: 400% 400%;
-    animation: gradientShift 12s ease infinite;
+    animation: gradientShift 10s ease infinite;
     font-family: 'Poppins', sans-serif;
 }
 @keyframes gradientShift {
@@ -20,35 +21,53 @@ body {
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
+
+/* ---- Text Styling ---- */
 h1, h2, h3 {text-align:center; color:#333;}
-.login-box {
-    background: rgba(255,255,255,0.9);
+p {text-align:center; font-size:16px;}
+
+/* ---- Box Styling ---- */
+.login-box, .content-box {
+    background: rgba(255, 255, 255, 0.88);
     padding: 30px; border-radius: 20px;
-    box-shadow: 0 6px 25px rgba(0,0,0,0.3);
-    width: 90%; max-width: 400px;
-    margin: auto; animation: fadeIn 1s ease-in;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+    width: 90%; max-width: 500px;
+    margin: auto;
+    animation: fadeIn 1s ease-in;
 }
-@keyframes fadeIn {
-    from {opacity: 0; transform: translateY(25px);}
-    to {opacity: 1; transform: translateY(0);}
-}
+
+/* ---- Buttons ---- */
 .stButton>button {
     background: linear-gradient(to right, #667eea, #764ba2);
-    color:white; border-radius:8px; font-size:16px;
-    padding:8px 18px; border:none; transition:0.3s;
+    color:white; border-radius:8px;
+    font-size:17px; font-weight:600;
+    padding:10px 20px; border:none;
+    transition:0.3s; box-shadow:0 4px 10px rgba(0,0,0,0.2);
 }
 .stButton>button:hover {
     background: linear-gradient(to right, #764ba2, #667eea);
     transform:scale(1.05);
 }
+
+/* ---- Timer ---- */
 .timer {
-    color: #d32f2f; font-weight:bold; font-size:20px; text-align:center;
-}
-.feedback-box {
-    background: rgba(255,255,255,0.8);
-    border-radius:10px; padding:10px 15px;
-    box-shadow:0 3px 8px rgba(0,0,0,0.1);
+    color: #d32f2f; font-weight:bold;
+    font-size:20px; text-align:center;
     margin-top:10px;
+}
+
+/* ---- Feedback Box ---- */
+.feedback-box {
+    background: rgba(255,255,255,0.85);
+    border-radius:10px; padding:10px 15px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+    margin-top:10px; text-align:center;
+}
+
+/* ---- Fade Animation ---- */
+@keyframes fadeIn {
+    from {opacity: 0; transform: translateY(25px);}
+    to {opacity: 1; transform: translateY(0);}
 }
 </style>
 """, unsafe_allow_html=True)
@@ -115,16 +134,23 @@ def login_user(username, password):
 
 def ai_feedback(question, user_ans, correct_ans):
     if user_ans == correct_ans:
-        return "Great job! 🎉 You clearly understand this topic!"
+        return "🌟 Excellent! You’ve mastered this question!"
     else:
-        return f"Not quite right 😅. The correct answer was **{correct_ans}**. Review this concept again!"
+        return f"🤔 Oops! The correct answer was **{correct_ans}**. Try revising this topic."
 
 # ---------------- HOME PAGE ----------------
 if st.session_state.stage == "home":
     st.markdown("<h1>🎯 Welcome to Smart Quiz Application 🎯</h1>", unsafe_allow_html=True)
-    # New animation (quiz theme)
-    st.image("https://i.pinimg.com/originals/90/4e/d4/904ed4a4a67f94923e79a3de78cbe127.gif", use_container_width=True)
-    st.write("🚀 Ready to challenge yourself with Programming, Maths & GK?")
+    st.image("https://cdn.dribbble.com/users/166903/screenshots/2685205/quiz.gif", use_container_width=True)
+    st.markdown("""
+    <div class='content-box'>
+        <h3>🧠 Test Your Knowledge!</h3>
+        <p>Challenge yourself with quizzes from <b>Programming</b>, <b>Maths</b>, and <b>General Knowledge</b>.<br>
+        Improve your skills while having fun! 💡</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.image("https://cdn.dribbble.com/users/14268/screenshots/4107914/quiz-game.gif", use_container_width=True)
+    st.write("🚀 Ready to start your quiz journey?")
     if st.button("Start ▶️"):
         st.session_state.stage = "register"
         st.rerun()
@@ -188,7 +214,7 @@ if st.session_state.stage == "quiz" and st.session_state.user:
     total = len(quiz)
 
     # Timer
-    total_time = 20  # seconds per question
+    total_time = 20
     elapsed = int(time.time() - st.session_state.start_time)
     remaining = max(0, total_time - elapsed)
     st.markdown(f"<div class='timer'>⏳ Time Left: {remaining} seconds</div>", unsafe_allow_html=True)
@@ -235,7 +261,3 @@ if st.session_state.stage == "quiz" and st.session_state.user:
         st.session_state.page += 1
         st.session_state.start_time = time.time()
         st.rerun()
-
-
-
-
