@@ -1,74 +1,121 @@
-from flask import Flask, render_template, request, redirect, session
-import sqlite3, random, os
+import streamlit as st
+import time
 
-app = Flask(__name__)
-app.secret_key = "animated_quiz_secret"
-DB = "quiz.db"
+# -------------------- PAGE CONFIG --------------------
+st.set_page_config(
+    page_title="Quiz Application",
+    page_icon="🧩",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
-# ---------- DATABASE SETUP ----------
-def init_db():
-    if not os.path.exists(DB):
-        con = sqlite3.connect(DB)
-        cur = con.cursor()
-        cur.execute("CREATE TABLE questions(id INTEGER PRIMARY KEY, question TEXT, a TEXT, b TEXT, c TEXT, d TEXT, answer TEXT)")
-        questions = [
-            ("What is 2 + 2?", "3", "4", "5", "6", "b"),
-            ("Which keyword defines a function in Python?", "func", "def", "lambda", "define", "b"),
-            ("What is the capital of France?", "Berlin", "Madrid", "Paris", "Rome", "c"),
-            ("HTML stands for?", "HighText Machine Language", "Hyper Text Markup Language", "Hyper Transfer Markup Language", "None", "b"),
-            ("Which planet is known as the Red Planet?", "Earth", "Venus", "Mars", "Jupiter", "c")
-        ]
-        cur.executemany("INSERT INTO questions(question,a,b,c,d,answer) VALUES (?,?,?,?,?,?)", questions)
-        con.commit()
-        con.close()
+# -------------------- CUSTOM STYLES --------------------
+st.markdown("""
+    <style>
+        .main {
+            background: linear-gradient(135deg, #d6f0ff 0%, #ffffff 100%);
+            padding: 2rem;
+            border-radius: 15px;
+        }
+        .stButton>button {
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #45a049;
+        }
+        h1, h2, h3 {
+            text-align: center;
+            color: #333333;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# ---------- ROUTES ----------
-@app.route('/')
-def home():
-    session.clear()
-    return render_template('home.html')
+# -------------------- QUIZ QUESTIONS --------------------
+quiz = [
+    {
+        "question": "Which language is known as the brain of the computer?",
+        "options": ["Python", "C", "Java", "CPU"],
+        "answer": "CPU"
+    },
+    {
+        "question": "Which of these is a Python web framework?",
+        "options": ["Django", "TensorFlow", "NumPy", "Pandas"],
+        "answer": "Django"
+    },
+    {
+        "question": "HTML stands for?",
+        "options": [
+            "Hyper Trainer Marking Language",
+            "Hyper Text Markup Language",
+            "Hyper Text Markdown Language",
+            "None of these"
+        ],
+        "answer": "Hyper Text Markup Language"
+    },
+    {
+        "question": "What does CSS stand for?",
+        "options": [
+            "Cascading Style Sheets",
+            "Computer Style Sheet",
+            "Creative Style System",
+            "Colorful Style Sheet"
+        ],
+        "answer": "Cascading Style Sheets"
+    },
+    {
+        "question": "Which of the following is a database?",
+        "options": ["MySQL", "NumPy", "React", "Pandas"],
+        "answer": "MySQL"
+    }
+]
 
-@app.route('/start', methods=['POST'])
-def start():
-    con = sqlite3.connect(DB)
-    cur = con.cursor()
-    cur.execute("SELECT * FROM questions")
-    questions = cur.fetchall()
-    con.close()
+# -------------------- QUIZ LOGIC --------------------
+st.title("🎯 Welcome to the Quiz Application")
+st.markdown("### Test your knowledge and see your score instantly!")
 
-    random.shuffle(questions)
-    session['questions'] = questions
-    session['index'] = 0
-    session['score'] = 0
+if "page" not in st.session_state:
+    st.session_state.page = 0
+if "score" not in st.session_state:
+    st.session_state.score = 0
+if "answers" not in st.session_state:
+    st.session_state.answers = {}
 
-    return redirect('/question')
+# Current question
+page = st.session_state.page
+total_questions = len(quiz)
 
-@app.route('/question', methods=['GET', 'POST'])
-def question():
-    if 'questions' not in session:
-        return redirect('/')
-    index = session['index']
-    questions = session['questions']
+if page < total_questions:
+    question = quiz[page]
+    st.markdown(f"### Q{page+1}. {question['question']}")
+    choice = st.radio("Choose an answer:", question["options"], key=page)
 
-    if request.method == 'POST':
-        selected = request.form.get('option')
-        correct = questions[index - 1][6]
-        if selected == correct:
-            session['score'] += 1
+    if st.button("Next ➡️"):
+        st.session_state.answers[page] = choice
+        if choice == question["answer"]:
+            st.session_state.score += 1
+        st.session_state.page += 1
+        st.rerun()
+else:
+    # -------------------- RESULT PAGE --------------------
+    st.balloons()
+    st.success("🎉 Quiz Completed!")
+    st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
 
-    if index >= len(questions):
-        return redirect('/result')
+    if st.session_state.score == total_questions:
+        st.balloons()
+        st.markdown("🌟 Perfect! You got all answers correct!")
+    elif st.session_state.score >= total_questions / 2:
+        st.markdown("👍 Great job! Keep it up!")
+    else:
+        st.markdown("💡 Keep practicing to improve your score!")
 
-    q = questions[index]
-    session['index'] += 1
-    return render_template('question.html', q=q, index=index + 1, total=len(questions))
-
-@app.route('/result')
-def result():
-    score = session.get('score', 0)
-    total = len(session.get('questions', []))
-    return render_template('result.html', score=score, total=total)
-
-if __name__ == "__main__":
-    init_db()
-    app.run(debug=True)
+    if st.button("🔁 Restart Quiz"):
+        st.session_state.page = 0
+        st.session_state.score = 0
+        st.session_state.answers = {}
+        st.rerun()
