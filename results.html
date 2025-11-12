@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Result</title>
+  <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+</head>
+<body>
+  <div class="container animate__animated animate__zoomIn">
+    <h2>🎉 Quiz Completed!</h2>
+    <p>Your Score: <b>{{score}} / {{total}}</b></p>
+
+    {% if score == total %}
+      <h3 class="animate__animated animate__heartBeat">🌟 Perfect!</h3>
+    {% elif score >= total/2 %}
+      <h3 class="animate__animated animate__pulse">👍 Great Job!</h3>
+    {% else %}
+      <h3 class="animate__animated animate__shakeX">💡 Keep Learning!</h3>
+    {% endif %}
+
+    <br>
+    <a href="/"><button>Play Again</button></a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Question {{index}}</title>
+  <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+</head>
+<body>
+  <div class="container animate__animated animate__zoomIn">
+    <h3>Question {{index}} / {{total}}</h3>
+    <p><b>{{q[1]}}</b></p>
+
+    <form method="POST">
+      <div class="animate__animated animate__fadeInUp">
+        <input type="radio" name="option" value="a"> {{q[2]}}<br>
+        <input type="radio" name="option" value="b"> {{q[3]}}<br>
+        <input type="radio" name="option" value="c"> {{q[4]}}<br>
+        <input type="radio" name="option" value="d"> {{q[5]}}<br><br>
+      </div>
+      <button type="submit" class="animate__animated animate__bounceIn">Next</button>
+    </form>
+  </div>
+
+  <script>
+    // Add small fade-out effect before next question
+    const form = document.querySelector('form');
+    form.addEventListener('submit', () => {
+      document.querySelector('.container').classList.add('animate__fadeOutUp');
+    });
+  </script>
+</body>
+</html>
