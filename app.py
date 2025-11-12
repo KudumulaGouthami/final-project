@@ -100,16 +100,6 @@ def login_user(username, password):
         return True, "✅ Login successful!"
     return False, "❌ Invalid username or password."
 
-# -------------------- BACKGROUND MUSIC TOGGLE --------------------
-st.sidebar.markdown("🎵 **Background Music Control**")
-music_on = st.sidebar.checkbox("Play Music", value=True)
-if music_on:
-    st.markdown("""
-        <audio autoplay loop>
-            <source src="https://cdn.pixabay.com/audio/2022/03/15/audio_7e7e77b1b0.mp3" type="audio/mpeg">
-        </audio>
-    """, unsafe_allow_html=True)
-
 # -------------------- AUTO-NEXT HANDLER --------------------
 params = st.query_params
 if "auto_next" in params:
@@ -157,7 +147,7 @@ else:
 
     # -------------------- QUIZ LOGIC --------------------
     st.title("🎯 Quiz Application")
-    st.markdown("### Test your knowledge with timer, music & leaderboard!")
+    st.markdown("### Test your knowledge with timer & leaderboard!")
 
     # initialize session state
     if "page" not in st.session_state:
@@ -178,17 +168,6 @@ else:
         st.balloons()
         st.success("🎉 Quiz Completed!")
         st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
-
-        # 🎯 AI Feedback based on performance
-        score_percent = (st.session_state.score / total_questions) * 100
-        if score_percent == 100:
-            st.success("🤖 Excellent! Perfect Score! 🌟 You're a Quiz Master!")
-        elif score_percent >= 70:
-            st.info("💪 Great job! You have strong knowledge.")
-        elif score_percent >= 40:
-            st.warning("🙂 Good try! A bit more practice and you’ll nail it.")
-        else:
-            st.error("😅 Keep learning! You’ll improve with more practice.")
 
         username = st.session_state.user
         if username not in users:
