@@ -4,6 +4,7 @@ import streamlit as st
 import json
 import os
 import time
+import random
 from datetime import datetime
 import streamlit.components.v1 as components
 
@@ -63,7 +64,17 @@ quiz = [
      "options": ["Cascading Style Sheets", "Computer Style Sheet",
                  "Creative Style System", "Colorful Style Sheet"], "answer": "Cascading Style Sheets"},
     {"question": "Which of the following is a database?",
-     "options": ["MySQL", "NumPy", "React", "Pandas"], "answer": "MySQL"}
+     "options": ["MySQL", "NumPy", "React", "Pandas"], "answer": "MySQL"},
+    {"question": "Which keyword is used to create a function in Python?",
+     "options": ["def", "func", "lambda", "function"], "answer": "def"},
+    {"question": "What symbol is used for comments in Python?",
+     "options": ["//", "#", "/* */", "<!-- -->"], "answer": "#"},
+    {"question": "Which tag is used to link CSS in HTML?",
+     "options": ["<css>", "<style>", "<link>", "<script>"], "answer": "<link>"},
+    {"question": "Which company developed Java?",
+     "options": ["Microsoft", "Oracle", "Google", "Sun Microsystems"], "answer": "Sun Microsystems"},
+    {"question": "Which database is NoSQL based?",
+     "options": ["MongoDB", "MySQL", "PostgreSQL", "Oracle"], "answer": "MongoDB"}
 ]
 
 # -------------------- FILES --------------------
@@ -140,7 +151,7 @@ else:
     st.sidebar.success(f"👤 Logged in as: {st.session_state.user}")
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user = None
-        for key in ["page", "score", "answers", "start_time"]:
+        for key in ["page", "score", "answers", "start_time", "shuffled_quiz"]:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
@@ -158,9 +169,12 @@ else:
         st.session_state.answers = {}
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
+    if "shuffled_quiz" not in st.session_state:
+        st.session_state.shuffled_quiz = random.sample(quiz, len(quiz))  # shuffle questions once per session
 
+    shuffled_quiz = st.session_state.shuffled_quiz
     page = st.session_state.page
-    total_questions = len(quiz)
+    total_questions = len(shuffled_quiz)
     timer_limit = 15  # seconds per question
 
     # -------------------- END OF QUIZ --------------------
@@ -195,14 +209,14 @@ else:
             st.write(f"🕒 {entry['date']} — **{entry['score']} / {entry['total']}**")
 
         if st.button("🔁 Restart Quiz"):
-            for key in ["page", "score", "answers", "start_time"]:
+            for key in ["page", "score", "answers", "start_time", "shuffled_quiz"]:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
         st.stop()
 
     # -------------------- QUESTION DISPLAY --------------------
-    question = quiz[page]
+    question = shuffled_quiz[page]
     st.markdown(f"### Q{page+1}. {question['question']}")
 
     # Timer display
