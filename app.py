@@ -1,4 +1,6 @@
 import streamlit as st
+import json
+import os
 import time
 
 # -------------------- PAGE CONFIG --------------------
@@ -74,48 +76,108 @@ quiz = [
     }
 ]
 
-# -------------------- QUIZ LOGIC --------------------
-st.title("🎯 Welcome to the Quiz Application")
-st.markdown("### Test your knowledge and see your score instantly!")
+# -------------------- USER DATA MANAGEMENT --------------------
+USER_FILE = "users.json"
 
-if "page" not in st.session_state:
-    st.session_state.page = 0
-if "score" not in st.session_state:
-    st.session_state.score = 0
-if "answers" not in st.session_state:
-    st.session_state.answers = {}
+def load_users():
+    if os.path.exists(USER_FILE):
+        with open(USER_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
-# Current question
-page = st.session_state.page
-total_questions = len(quiz)
+def save_users(users):
+    with open(USER_FILE, "w") as f:
+        json.dump(users, f)
 
-if page < total_questions:
-    question = quiz[page]
-    st.markdown(f"### Q{page+1}. {question['question']}")
-    choice = st.radio("Choose an answer:", question["options"], key=page)
+# -------------------- LOGIN & REGISTRATION --------------------
+users = load_users()
 
-    if st.button("Next ➡️"):
-        st.session_state.answers[page] = choice
-        if choice == question["answer"]:
-            st.session_state.score += 1
-        st.session_state.page += 1
-        st.rerun()
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+def register_user(username, password):
+    if username in users:
+        return False, "⚠️ Username already exists."
+    users[username] = {"password": password}
+    save_users(users)
+    return True, "✅ Registration successful! Please login."
+
+def login_user(username, password):
+    if username in users and users[username]["password"] == password:
+        st.session_state.user = username
+        return True, "✅ Login successful!"
+    return False, "❌ Invalid username or password."
+
+# -------------------- LOGIN PAGE --------------------
+if st.session_state.user is None:
+    st.title("🧩 Welcome to the Quiz App")
+    menu = st.radio("Select Option:", ["Login", "Register"])
+
+    if menu == "Login":
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            success, message = login_user(username, password)
+            st.info(message)
+            if success:
+                time.sleep(1)
+                st.rerun()
+
+    elif menu == "Register":
+        username = st.text_input("Choose Username")
+        password = st.text_input("Choose Password", type="password")
+        if st.button("Register"):
+            success, message = register_user(username, password)
+            st.info(message)
+
 else:
-    # -------------------- RESULT PAGE --------------------
-    st.balloons()
-    st.success("🎉 Quiz Completed!")
-    st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
-
-    if st.session_state.score == total_questions:
-        st.balloons()
-        st.markdown("🌟 Perfect! You got all answers correct!")
-    elif st.session_state.score >= total_questions / 2:
-        st.markdown("👍 Great job! Keep it up!")
-    else:
-        st.markdown("💡 Keep practicing to improve your score!")
-
-    if st.button("🔁 Restart Quiz"):
+    # -------------------- QUIZ LOGIC --------------------
+    st.sidebar.write(f"👤 Logged in as: **{st.session_state.user}**")
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.user = None
         st.session_state.page = 0
         st.session_state.score = 0
         st.session_state.answers = {}
         st.rerun()
+
+    st.title("🎯 Welcome to the Quiz Application")
+    st.markdown("### Test your knowledge and see your score instantly!")
+
+    if "page" not in st.session_state:
+        st.session_state.page = 0
+    if "score" not in st.session_state:
+        st.session_state.score = 0
+    if "answers" not in st.session_state:
+        st.session_state.answers = {}
+
+    page = st.session_state.page
+    total_questions = len(quiz)
+
+    if page < total_questions:
+        question = quiz[page]
+        st.markdown(f"### Q{page+1}. {question['question']}")
+        choice = st.radio("Choose an answer:", question["options"], key=page)
+
+        if st.button("Next ➡️"):
+            st.session_state.answers[page] = choice
+            if choice == question["answer"]:
+                st.session_state.score += 1
+            st.session_state.page += 1
+            st.rerun()
+    else:
+        st.balloons()
+        st.success("🎉 Quiz Completed!")
+        st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
+
+        if st.session_state.score == total_questions:
+            st.markdown("🌟 Perfect! You got all answers correct!")
+        elif st.session_state.score >= total_questions / 2:
+            st.markdown("👍 Great job! Keep it up!")
+        else:
+            st.markdown("💡 Keep practicing to improve your score!")
+
+        if st.button("🔁 Restart Quiz"):
+            st.session_state.page = 0
+            st.session_state.score = 0
+            st.session_state.answers = {}
+            st.rerun()
