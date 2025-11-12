@@ -1,9 +1,9 @@
 
-
 import streamlit as st
 import json
 import os
 import time
+import random
 from datetime import datetime
 import streamlit.components.v1 as components
 
@@ -46,6 +46,11 @@ st.markdown("""
         }
         .stButton>button:hover {
             background-color: #0056b3;
+        }
+        .score {
+            text-align:center;
+            color:#007BFF;
+            font-weight:bold;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -113,20 +118,16 @@ st.markdown("""
     </audio>
 """, unsafe_allow_html=True)
 
-# -------------------- HANDLE auto_next param (triggered by client JS) --------------------
+# -------------------- HANDLE AUTO_NEXT --------------------
 params = st.experimental_get_query_params()
 if "auto_next" in params:
-    # advance page automatically (record no answer)
     if "page" in st.session_state:
-        # record unanswered as None so we keep history consistent
         idx = st.session_state.get("page", 0)
         st.session_state.answers[idx] = None
         st.session_state.page = idx + 1
     else:
         st.session_state.page = 1
-    # reset start time for next question
     st.session_state.start_time = time.time()
-    # clear query params and rerun
     st.experimental_set_query_params()
     st.experimental_rerun()
 
@@ -136,8 +137,8 @@ if st.session_state.user is None:
     menu = st.radio("Select Option:", ["Login", "Register"])
 
     if menu == "Login":
-        username = st.text_input("Username", key="login_username")
-        password = st.text_input("Password", type="password", key="login_password")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
         if st.button("Login"):
             success, message = login_user(username, password)
             st.info(message)
@@ -146,8 +147,8 @@ if st.session_state.user is None:
                 st.experimental_rerun()
 
     elif menu == "Register":
-        username = st.text_input("Choose Username", key="reg_username")
-        password = st.text_input("Choose Password", type="password", key="reg_password")
+        username = st.text_input("Choose Username")
+        password = st.text_input("Choose Password", type="password")
         if st.button("Register"):
             success, message = register_user(username, password)
             st.info(message)
@@ -155,9 +156,12 @@ if st.session_state.user is None:
 else:
     # -------------------- SIDEBAR --------------------
     st.sidebar.success(f"👤 Logged in as: {st.session_state.user}")
+    theme = st.sidebar.radio("Theme", ["Light", "Dark"])
+    if theme == "Dark":
+        st.markdown("<style>body {background:#121212; color:white;}</style>", unsafe_allow_html=True)
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user = None
-        for key in ["page", "score", "answers", "start_time"]:
+        for key in ["page", "score", "answers", "start_time", "shuffled_quiz"]:
             if key in st.session_state:
                 del st.session_state[key]
         st.experimental_rerun()
@@ -166,7 +170,6 @@ else:
     st.title("🎯 Quiz Application")
     st.markdown("### Test your knowledge with timer, music & leaderboard!")
 
-    # initialize session state keys
     if "page" not in st.session_state:
         st.session_state.page = 0
     if "score" not in st.session_state:
@@ -175,78 +178,36 @@ else:
         st.session_state.answers = {}
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
+    if "shuffled_quiz" not in st.session_state:
+        st.session_state.shuffled_quiz = random.sample(quiz, len(quiz))  # randomize question order
 
     page = st.session_state.page
-    total_questions = len(quiz)
-    timer_limit = 15  # seconds per question
+    total_questions = len(st.session_state.shuffled_quiz)
+    timer_limit = 15
 
-    # If all questions done, show results
-    if page >= total_questions:
-        st.balloons()
-        st.success("🎉 Quiz Completed!")
-        st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
+    # -------------------- PROGRESS BAR --------------------
+    st.progress((page) / total_questions)
+    st.markdown(f"**Question {page + 1} of {total_questions}**")
 
-        username = st.session_state.user
-        if username not in users:
-            users[username] = {"password": "", "scores": []}
+    # -------------------- SCORE TRACKER --------------------
+    st.markdown(f"<p class='score'>⭐ Current Score: {st.session_state.score}</p>", unsafe_allow_html=True)
 
-        score_data = {
-            "score": st.session_state.score,
-            "total": total_questions,
-            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-        users[username].setdefault("scores", []).append(score_data)
-        save_data(USER_FILE, users)
-
-        # Update leaderboard
-        leaderboard[username] = max(s["score"] for s in users[username]["scores"])
-        save_data(LEADERBOARD_FILE, leaderboard)
-
-        # Leaderboard display
-        st.subheader("🏆 Leaderboard (Top 5)")
-        sorted_lb = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
-        for rank, (user, score) in enumerate(sorted_lb[:5], 1):
-            st.write(f"{rank}. **{user}** — {score} points")
-
-        # Past scores
-        st.markdown("### 📊 Your Past Scores:")
-        for entry in users[username]["scores"]:
-            st.write(f"🕒 {entry['date']} — **{entry['score']} / {entry['total']}**")
-
-        if st.button("🔁 Restart Quiz"):
-            for key in ["page", "score", "answers", "start_time"]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.experimental_rerun()
-        st.stop()
-
-    # Show question
-    question = quiz[page]
-    st.markdown(f"### Q{page+1}. {question['question']}")
-
-    # compute remaining time (server-side)
+    # -------------------- TIMER --------------------
     elapsed = int(time.time() - st.session_state.start_time)
     remaining = max(0, timer_limit - elapsed)
 
-    # Show JS-driven live timer and auto-redirect when time hits 0
-    # We pass the remaining seconds and the auto-next URL param.
-    # The JS counts down on the client; when it reaches 0 it sets ?auto_next=1 which we handled above.
     js_html = f"""
     <div style="text-align:center; font-weight:bold; font-size:20px; color:#e53935;">
       ⏳ Time left: <span id="countdown">{remaining}</span> seconds
     </div>
     <script>
-      const start = Date.now();
       let remaining = {remaining};
       const el = document.getElementById("countdown");
-      // update display every second
       const interval = setInterval(() => {{
           remaining -= 1;
           if (remaining <= 0) {{
               el.innerText = 0;
               clearInterval(interval);
-              // redirect to same page adding auto_next param to trigger server-side advance
               const url = new URL(window.location.href);
               url.searchParams.set('auto_next', '1');
               window.location.href = url.toString();
@@ -258,16 +219,59 @@ else:
     """
     components.html(js_html, height=60)
 
-    # present options
-    choice = st.radio("Choose an answer:", question["options"], key=f"q{page}")
+    # -------------------- QUESTION DISPLAY --------------------
+    if page < total_questions:
+        question = st.session_state.shuffled_quiz[page]
+        st.markdown(f"### Q{page + 1}. {question['question']}")
+        choice = st.radio("Choose an answer:", question["options"], key=f"q{page}")
 
-    # If user clicks Next: record answer and advance
-    if st.button("Next ➡️"):
-        st.session_state.answers[page] = choice
-        if choice == question["answer"]:
-            st.session_state.score += 1
-        st.session_state.page += 1
-        st.session_state.start_time = time.time()
-        # remove any auto_next param if present (defensive)
-        st.experimental_set_query_params()
-        st.experimental_rerun()
+        if st.button("Next ➡️"):
+            st.session_state.answers[page] = choice
+            if choice == question["answer"]:
+                st.session_state.score += 1
+                st.success("✅ Correct!")
+                st.balloons()
+            else:
+                st.error("❌ Wrong Answer!")
+            st.session_state.page += 1
+            st.session_state.start_time = time.time()
+            st.experimental_set_query_params()
+            st.experimental_rerun()
+
+    else:
+        st.balloons()
+        st.success("🎉 Quiz Completed!")
+        st.write(f"**Your Score: {st.session_state.score} / {total_questions}**")
+
+        username = st.session_state.user
+        users.setdefault(username, {"password": "", "scores": []})
+
+        score_data = {
+            "score": st.session_state.score,
+            "total": total_questions,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        users[username]["scores"].append(score_data)
+        save_data(USER_FILE, users)
+        leaderboard[username] = max(s["score"] for s in users[username]["scores"])
+        save_data(LEADERBOARD_FILE, leaderboard)
+
+        # -------------------- USER PROFILE --------------------
+        past_scores = users[username]["scores"]
+        avg_score = sum(s["score"] for s in past_scores) / len(past_scores)
+        last_played = past_scores[-1]["date"]
+        st.markdown(f"**📅 Last Played:** {last_played}")
+        st.markdown(f"**📊 Average Score:** {avg_score:.2f}")
+
+        # -------------------- LEADERBOARD --------------------
+        st.subheader("🏆 Leaderboard (Top 5)")
+        sorted_lb = sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)
+        for rank, (user, score) in enumerate(sorted_lb[:5], 1):
+            st.write(f"{rank}. **{user}** — {score} points")
+
+        if st.button("🔁 Restart Quiz"):
+            for key in ["page", "score", "answers", "start_time", "shuffled_quiz"]:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.experimental_rerun()
