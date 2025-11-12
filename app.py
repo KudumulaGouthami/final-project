@@ -1,6 +1,3 @@
-
-
-
 import streamlit as st
 import json, os, time, random
 from datetime import datetime
@@ -46,6 +43,12 @@ h1, h2, h3 {text-align:center; color:#333;}
 }
 .timer {
     color: #d32f2f; font-weight:bold; font-size:20px; text-align:center;
+}
+.feedback-box {
+    background: rgba(255,255,255,0.8);
+    border-radius:10px; padding:10px 15px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.1);
+    margin-top:10px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -110,10 +113,17 @@ def login_user(username, password):
         return True, "✅ Login successful!"
     return False, "❌ Invalid credentials."
 
+def ai_feedback(question, user_ans, correct_ans):
+    if user_ans == correct_ans:
+        return "Great job! 🎉 You clearly understand this topic!"
+    else:
+        return f"Not quite right 😅. The correct answer was **{correct_ans}**. Review this concept again!"
+
 # ---------------- HOME PAGE ----------------
 if st.session_state.stage == "home":
-    st.markdown("<h1>🎉 Welcome to Smart Quiz Application 🎉</h1>", unsafe_allow_html=True)
-    st.image("https://i.gifer.com/7efs.gif", use_container_width=True)
+    st.markdown("<h1>🎯 Welcome to Smart Quiz Application 🎯</h1>", unsafe_allow_html=True)
+    # New animation (quiz theme)
+    st.image("https://i.pinimg.com/originals/90/4e/d4/904ed4a4a67f94923e79a3de78cbe127.gif", use_container_width=True)
     st.write("🚀 Ready to challenge yourself with Programming, Maths & GK?")
     if st.button("Start ▶️"):
         st.session_state.stage = "register"
@@ -177,6 +187,18 @@ if st.session_state.stage == "quiz" and st.session_state.user:
     page = st.session_state.page
     total = len(quiz)
 
+    # Timer
+    total_time = 20  # seconds per question
+    elapsed = int(time.time() - st.session_state.start_time)
+    remaining = max(0, total_time - elapsed)
+    st.markdown(f"<div class='timer'>⏳ Time Left: {remaining} seconds</div>", unsafe_allow_html=True)
+
+    if remaining <= 0:
+        st.warning("⏰ Time's up for this question!")
+        st.session_state.page += 1
+        st.session_state.start_time = time.time()
+        st.rerun()
+
     if page >= total:
         st.balloons()
         st.success(f"🎉 Quiz Completed — Score: {st.session_state.score}/{total}")
@@ -199,11 +221,21 @@ if st.session_state.stage == "quiz" and st.session_state.user:
     q = quiz[page]
     st.markdown(f"### Q{page+1}. {q['question']}")
     choice = st.radio("Choose an answer:", q["options"], key=f"q{page}")
+
     if st.button("Next ➡️"):
+        feedback = ""
         if choice == q["answer"]:
             st.session_state.score += 1
             st.success("✅ Correct!")
         else:
             st.error(f"❌ Wrong! Correct: {q['answer']}")
+        feedback = ai_feedback(q['question'], choice, q['answer'])
+        st.markdown(f"<div class='feedback-box'>{feedback}</div>", unsafe_allow_html=True)
+        time.sleep(1.5)
         st.session_state.page += 1
+        st.session_state.start_time = time.time()
         st.rerun()
+
+
+
+
