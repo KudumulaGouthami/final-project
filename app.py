@@ -41,7 +41,7 @@ quiz_data = {
     "Python": [
         {"question": "What is the output of print(2 ** 3)?", "options": ["5", "6", "8", "9"], "answer": "8"},
         {"question": "Which keyword is used for function in Python?", "options": ["define", "def", "function", "fun"], "answer": "def"},
-        {"question": "What data type is the object below? \nL = [1, 23, 'hello', 1]", "options": ["List", "Dictionary", "Tuple", "Array"], "answer": "List"},
+        {"question": "What data type is this? L = [1, 23, 'hello', 1]", "options": ["List", "Dictionary", "Tuple", "Array"], "answer": "List"},
     ],
     "Java": [
         {"question": "Which keyword is used to inherit a class in Java?", "options": ["super", "this", "extends", "implements"], "answer": "extends"},
@@ -50,7 +50,7 @@ quiz_data = {
     ]
 }
 
-# ---------------- INITIALIZE SESSION STATE ----------------
+# ---------------- SESSION STATE ----------------
 if "page" not in st.session_state:
     st.session_state.page = "home"
 if "score" not in st.session_state:
@@ -64,7 +64,7 @@ if "questions" not in st.session_state:
 if "start_time" not in st.session_state:
     st.session_state.start_time = None
 if "timer_duration" not in st.session_state:
-    st.session_state.timer_duration = 60  # 60 seconds default
+    st.session_state.timer_duration = 60  # 1-minute timer
 
 
 # ---------------- TIMER FUNCTION ----------------
@@ -93,7 +93,7 @@ if st.session_state.page == "home":
         st.session_state.score = 0
         st.session_state.start_time = time.time()
         st.session_state.page = "quiz"
-        st.experimental_rerun()
+        st.rerun()
 
 # ---------------- QUIZ PAGE ----------------
 elif st.session_state.page == "quiz":
@@ -101,9 +101,10 @@ elif st.session_state.page == "quiz":
 
     if remaining_time <= 0:
         st.session_state.page = "result"
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown(f"⏰ **Time Left: {remaining_time} seconds**")
+
     current_q = st.session_state.questions[st.session_state.q_index]
     st.subheader(f"Q{st.session_state.q_index + 1}. {current_q['question']}")
 
@@ -116,7 +117,7 @@ elif st.session_state.page == "quiz":
         st.session_state.q_index += 1
         if st.session_state.q_index >= len(st.session_state.questions):
             st.session_state.page = "result"
-        st.experimental_rerun()
+        st.rerun()
 
 # ---------------- RESULT PAGE ----------------
 elif st.session_state.page == "result":
@@ -125,4 +126,4 @@ elif st.session_state.page == "result":
 
     if st.button("Play Again 🔁"):
         st.session_state.page = "home"
-        st.experimental_rerun()
+        st.rerun()
