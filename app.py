@@ -3,6 +3,11 @@ import json, os, time, random
 from datetime import datetime
 import streamlit.components.v1 as components
 
+import streamlit as st
+
+st.set_page_config(page_title="Quiz App")
+st.write("✅ App loaded successfully up to this point")
+
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Smart Quiz App", page_icon="🎯", layout="centered")
 
@@ -272,3 +277,4 @@ if st.session_state.stage == "quiz" and st.session_state.user:
         st.session_state.page += 1
         st.session_state.start_time = time.time()
         st.rerun()
+
