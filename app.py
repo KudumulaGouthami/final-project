@@ -193,7 +193,8 @@ if st.session_state.stage == "quiz" and st.session_state.user:
     st.markdown(f"<div class='timer'>⏳ Time Left: {remaining} seconds</div>", unsafe_allow_html=True)
 
     # Timer auto-refresh every second
-    st.experimental_rerun() if remaining > 0 else None
+    st.rerun() if remaining > 0 else None
+
 
     if remaining <= 0:
         st.warning("⏰ Time's up for this question!")
@@ -237,3 +238,4 @@ if st.session_state.stage == "quiz" and st.session_state.user:
         st.session_state.page += 1
         st.session_state.start_time = time.time()
         st.rerun()
+
