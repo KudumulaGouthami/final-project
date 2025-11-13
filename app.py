@@ -1,165 +1,274 @@
 import streamlit as st
-import sqlite3
-import time
-import random
+import json, os, time, random
+from datetime import datetime
+import streamlit.components.v1 as components
 
-# -----------------------------
-# Database setup
-# -----------------------------
-conn = sqlite3.connect('quiz_app.db', check_same_thread=False)
-c = conn.cursor()
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="Smart Quiz App", page_icon="🎯", layout="centered")
 
-c.execute('''CREATE TABLE IF NOT EXISTS users (
-                username TEXT PRIMARY KEY,
-                password TEXT
-            )''')
+# ---------------- GLOBAL BACKGROUND STYLE ----------------
+st.markdown("""
+<style>
+/* Animated Background for all pages */
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(-45deg, #ffecd2, #fcb69f, #a1c4fd, #c2e9fb, #d4fc79, #96e6a1);
+    background-size: 500% 500%;
+    animation: gradientFlow 12s ease infinite;
+    font-family: 'Poppins', sans-serif;
+}
+@keyframes gradientFlow {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
 
-# -----------------------------
-# Quiz questions by category
-# -----------------------------
+/* Main Titles */
+h1, h2, h3 {
+    text-align:center;
+    color:#333;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Boxes */
+.content-box, .login-box {
+    background: rgba(255,255,255,0.85);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    width: 90%;
+    max-width: 500px;
+    margin: auto;
+    animation: fadeIn 1s ease-in;
+}
+
+/* Buttons */
+.stButton>button {
+    background: linear-gradient(to right, #667eea, #764ba2);
+    color:white;
+    border-radius:8px;
+    font-size:17px;
+    font-weight:600;
+    padding:10px 25px;
+    border:none;
+    transition:0.3s;
+    box-shadow:0 4px 10px rgba(0,0,0,0.2);
+}
+.stButton>button:hover {
+    background: linear-gradient(to right, #764ba2, #667eea);
+    transform:scale(1.05);
+}
+
+/* Timer */
+.timer {
+    color: #d32f2f;
+    font-weight:bold;
+    font-size:20px;
+    text-align:center;
+    margin-top:10px;
+}
+
+/* Feedback */
+.feedback-box {
+    background: rgba(255,255,255,0.9);
+    border-radius:10px;
+    padding:10px 15px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+    margin-top:10px;
+    text-align:center;
+}
+
+/* Fade Animation */
+@keyframes fadeIn {
+    from {opacity: 0; transform: translateY(25px);}
+    to {opacity: 1; transform: translateY(0);}
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- FILE HANDLING ----------------
+USER_FILE = "users.json"
+LEADERBOARD_FILE = "leaderboard.json"
+
+def load_data(file):
+    return json.load(open(file)) if os.path.exists(file) else {}
+
+def save_data(file, data):
+    json.dump(data, open(file, "w"), indent=4)
+
+users = load_data(USER_FILE)
+leaderboard = load_data(LEADERBOARD_FILE)
+
+# ---------------- QUIZ BANK ----------------
 quizzes = {
-    "Maths": [
-        {"question": "What is 12 + 8?", "options": ["18", "20", "22", "24"], "answer": "20"},
-        {"question": "Square root of 81?", "options": ["7", "8", "9", "10"], "answer": "9"},
-        {"question": "What is 15 × 3?", "options": ["45", "30", "25", "60"], "answer": "45"},
-    ],
     "Programming": [
-        {"question": "Which language is used for web apps?", "options": ["Python", "C++", "JavaScript", "C"], "answer": "JavaScript"},
-        {"question": "What does HTML stand for?", "options": ["HyperText Markup Language", "HighText Machine Language", "Hyper Tool Multi Language", "None"], "answer": "HyperText Markup Language"},
-        {"question": "Which keyword is used to define a function in Python?", "options": ["def", "func", "define", "lambda"], "answer": "def"},
+        {"question": "Which company developed Java?", "options": ["Microsoft","Oracle","Sun Microsystems","Google"], "answer": "Sun Microsystems"},
+        {"question": "Which symbol is used for comments in Python?", "options": ["#","//","/* */","<!-- -->"], "answer": "#"},
+        {"question": "HTML stands for?", "options": ["Hyper Text Markup Language","HighText Machine Language","Hyperlinks and Text Markup Language","None"], "answer": "Hyper Text Markup Language"},
+        {"question": "CSS stands for?", "options": ["Cascading Style Sheets","Color Style Syntax","Coding Style System","Central Sheet Style"], "answer": "Cascading Style Sheets"},
+        {"question": "Which keyword is used to create a function in Python?", "options": ["def","func","lambda","function"], "answer": "def"}
+    ],
+    "Maths": [
+        {"question": "What is 12 × 8?", "options": ["80","96","88","108"], "answer": "96"},
+        {"question": "The square root of 144 is?", "options": ["10","11","12","13"], "answer": "12"},
+        {"question": "What is 15% of 200?", "options": ["25","30","35","20"], "answer": "30"},
+        {"question": "Solve: (10 + 2) × 3", "options": ["30","36","25","40"], "answer": "36"},
+        {"question": "What is 7 + 6 × 5?", "options": ["65","37","35","47"], "answer": "37"}
     ],
     "General Knowledge": [
-        {"question": "Capital of France?", "options": ["Berlin", "Paris", "London", "Rome"], "answer": "Paris"},
-        {"question": "Which planet is known as Red Planet?", "options": ["Mars", "Jupiter", "Venus", "Saturn"], "answer": "Mars"},
-        {"question": "Who wrote ‘Harry Potter’?", "options": ["J.K. Rowling", "Tolstoy", "Shakespeare", "Charles Dickens"], "answer": "J.K. Rowling"},
+        {"question": "Who was the first President of India?", "options": ["Dr. Rajendra Prasad","Jawaharlal Nehru","Indira Gandhi","APJ Abdul Kalam"], "answer": "Dr. Rajendra Prasad"},
+        {"question": "Which is the national bird of India?", "options": ["Sparrow","Peacock","Crow","Parrot"], "answer": "Peacock"},
+        {"question": "Which planet is known as the Red Planet?", "options": ["Earth","Mars","Jupiter","Venus"], "answer": "Mars"},
+        {"question": "Who wrote the National Anthem?", "options": ["Rabindranath Tagore","Bankim Chandra","Sarojini Naidu","Mahatma Gandhi"], "answer": "Rabindranath Tagore"},
+        {"question": "Which is the largest ocean on Earth?", "options": ["Atlantic","Indian","Arctic","Pacific"], "answer": "Pacific"}
     ]
 }
 
-# -----------------------------
-# Page config & background
-# -----------------------------
-st.set_page_config(page_title="Smart Quiz Application", page_icon="🧠", layout="wide")
+# ---------------- SESSION INITIALIZATION ----------------
+if "stage" not in st.session_state:
+    st.session_state.stage = "home"
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-# Anime-style gradient background
-page_bg = """
-<style>
-[data-testid="stAppViewContainer"] {
-    background-image: url('https://i.pinimg.com/originals/62/50/7f/62507ffde96d05dbb8eddb255f81c6e4.gif');
-    background-size: cover;
-    background-position: center;
-}
-[data-testid="stHeader"] {
-    background: rgba(0,0,0,0);
-}
-.stButton>button {
-    background-color: #ff6b81;
-    color: white;
-    border-radius: 10px;
-    padding: 8px 20px;
-    font-size: 16px;
-    border: none;
-}
-.stButton>button:hover {
-    background-color: #ff4757;
-}
-</style>
-"""
-st.markdown(page_bg, unsafe_allow_html=True)
-
-# -----------------------------
-# Helper functions
-# -----------------------------
+# ---------------- FUNCTIONS ----------------
 def register_user(username, password):
-    c.execute("SELECT * FROM users WHERE username=?", (username,))
-    if c.fetchone():
-        return False
-    c.execute("INSERT INTO users (username, password) VALUES (?,?)", (username, password))
-    conn.commit()
-    return True
+    if not username or not password:
+        return False, "Please enter username and password."
+    if username in users:
+        return False, "⚠ Username already exists!"
+    users[username] = {"password": password, "scores": []}
+    save_data(USER_FILE, users)
+    return True, "✅ Registration successful!"
 
 def login_user(username, password):
-    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
-    return c.fetchone() is not None
+    if username in users and users[username]["password"] == password:
+        st.session_state.user = username
+        return True, "✅ Login successful!"
+    return False, "❌ Invalid credentials."
 
-# -----------------------------
-# Streamlit UI
-# -----------------------------
-st.title("🎯 Smart Quiz Application")
-st.markdown("### Welcome! Test your knowledge and challenge yourself 💡")
+def ai_feedback(question, user_ans, correct_ans):
+    if user_ans == correct_ans:
+        return "🌟 Excellent! You’ve mastered this question!"
+    else:
+        return f"🤔 Oops! The correct answer was *{correct_ans}*. Try revising this topic."
 
-menu = ["Login", "Register", "Start Quiz"]
-choice = st.sidebar.selectbox("Menu", menu)
+# ---------------- HOME PAGE ----------------
+if st.session_state.stage == "home":
+    st.markdown("<h1>🎯 Welcome to Smart Quiz Application 🎯</h1>", unsafe_allow_html=True)
+    st.image("https://cdn.dribbble.com/users/166903/screenshots/2685205/quiz.gif", use_container_width=True)
+    st.markdown("""
+    <div class='content-box'>
+        <h3>🧠 Test Your Knowledge!</h3>
+        <p>Challenge yourself with quizzes from <b>Programming</b>, <b>Maths</b>, and <b>General Knowledge</b>.<br>
+        Improve your skills while having fun! 💡</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.image("https://cdn.dribbble.com/users/14268/screenshots/4107914/quiz-game.gif", use_container_width=True)
+    if st.button("Start ▶"):
+        st.session_state.stage = "register"
+        st.rerun()
+    st.stop()
 
-# -----------------------------
-# Registration
-# -----------------------------
-if choice == "Register":
-    st.subheader("📝 Create a New Account")
-    new_user = st.text_input("Username")
-    new_pass = st.text_input("Password", type="password")
+# ---------------- REGISTER PAGE ----------------
+if st.session_state.stage == "register":
+    st.image("https://i.pinimg.com/originals/d3/06/7e/d3067e2d7d2d6f9a12dfbd00b9985b07.gif", use_container_width=True)
+    st.subheader("📝 Register Here")
+    username = st.text_input("Create Username")
+    password = st.text_input("Create Password", type="password")
     if st.button("Register"):
-        if register_user(new_user, new_pass):
-            st.success("✅ Registration successful! Please go to Login.")
-        else:
-            st.error("⚠️ Username already exists. Try a different one.")
+        ok, msg = register_user(username, password)
+        st.info(msg)
+        if ok:
+            time.sleep(1)
+            st.session_state.stage = "login"
+            st.rerun()
+    st.stop()
 
-# -----------------------------
-# Login
-# -----------------------------
-elif choice == "Login":
-    st.subheader("🔐 Login to Your Account")
+# ---------------- LOGIN PAGE ----------------
+if st.session_state.stage == "login" and st.session_state.user is None:
+    st.image("https://i.pinimg.com/originals/2f/d8/0b/2fd80b21c1ff8022a2b6c1e5de032eb5.gif", use_container_width=True)
+    st.subheader("🔐 Login to Continue")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Login"):
-        if login_user(username, password):
-            st.session_state["logged_in"] = True
-            st.session_state["user"] = username
-            st.success(f"Welcome {username}! Proceed to Start Quiz.")
-        else:
-            st.error("❌ Incorrect username or password.")
-
-# -----------------------------
-# Start Quiz
-# -----------------------------
-elif choice == "Start Quiz":
-    if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
-        st.warning("⚠️ Please login first from the sidebar.")
-    else:
-        category = st.selectbox("Choose Quiz Category", list(quizzes.keys()))
-        if st.button("Start Quiz"):
-            st.session_state["quiz_category"] = category
-            st.session_state["score"] = 0
-            st.session_state["q_index"] = 0
-            st.session_state["start_time"] = time.time()
-            st.session_state["total_time"] = 30  # seconds
-            st.session_state["quiz_started"] = True
+        ok, msg = login_user(username, password)
+        st.info(msg)
+        if ok:
+            st.session_state.stage = "quiz"
             st.rerun()
+    st.stop()
 
-# -----------------------------
-# Quiz Questions
-# -----------------------------
-if "quiz_started" in st.session_state and st.session_state["quiz_started"]:
-    remaining = int(st.session_state["total_time"] - (time.time() - st.session_state["start_time"]))
+# ---------------- QUIZ PAGE ----------------
+if st.session_state.stage == "quiz" and st.session_state.user:
+    st.sidebar.success(f"👤 Logged in as: {st.session_state.user}")
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state.user = None
+        st.session_state.stage = "home"
+        st.rerun()
+
+    st.title("🧩 Smart Quiz Application")
+    st.markdown("Select a category and start your quiz!")
+
+    if "quiz" not in st.session_state:
+        cat = st.selectbox("📚 Category", list(quizzes.keys()))
+        num_q = st.number_input("Number of questions", 1, len(quizzes[cat]), min(5, len(quizzes[cat])))
+        if st.button("Start Quiz ▶"):
+            selected = random.sample(quizzes[cat], num_q)
+            st.session_state.quiz = selected
+            st.session_state.page = 0
+            st.session_state.score = 0
+            st.session_state.start_time = time.time()
+            st.session_state.cat = cat
+            st.rerun()
+        st.stop()
+
+    quiz = st.session_state.quiz
+    page = st.session_state.page
+    total = len(quiz)
+
+    total_time = 20
+    elapsed = int(time.time() - st.session_state.start_time)
+    remaining = max(0, total_time - elapsed)
+    st.markdown(f"<div class='timer'>⏳ Time Left: {remaining} seconds</div>", unsafe_allow_html=True)
+
     if remaining <= 0:
-        st.error("⏰ Time’s up!")
-        st.session_state["quiz_started"] = False
-        st.info(f"Your Final Score: {st.session_state['score']} / {len(quizzes[st.session_state['quiz_category']])}")
-    else:
-        st.markdown(f"### ⏳ Time Left: **{remaining} seconds**")
-        category = st.session_state["quiz_category"]
-        q_index = st.session_state["q_index"]
-        question = quizzes[category][q_index]
-        st.subheader(question["question"])
-        answer = st.radio("Select your answer:", question["options"], key=q_index)
-        if st.button("Next"):
-            if answer == question["answer"]:
-                st.session_state["score"] += 1
-            st.session_state["q_index"] += 1
-            if st.session_state["q_index"] >= len(quizzes[category]):
-                st.session_state["quiz_started"] = False
-                st.success("🎉 Quiz Completed!")
-                st.info(f"✅ Your Score: {st.session_state['score']} / {len(quizzes[category])}")
-            st.rerun()
+        st.warning("⏰ Time's up for this question!")
+        st.session_state.page += 1
+        st.session_state.start_time = time.time()
+        st.rerun()
 
-        time.sleep(1)
+    if page >= total:
+        st.balloons()
+        st.success(f"🎉 Quiz Completed — Score: {st.session_state.score}/{total}")
+        username = st.session_state.user
+        score_data = {"score": st.session_state.score, "total": total, "category": st.session_state.cat,
+                      "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        users[username]["scores"].append(score_data)
+        save_data(USER_FILE, users)
+        leaderboard[username] = max(s["score"] for s in users[username]["scores"])
+        save_data(LEADERBOARD_FILE, leaderboard)
+        st.subheader("🏆 Leaderboard (Top 5)")
+        for i, (u, sc) in enumerate(sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)[:5], 1):
+            st.write(f"{i}. *{u}* — {sc} points")
+        if st.button("🔁 Restart"):
+            for k in ["quiz", "page", "score", "cat"]:
+                if k in st.session_state: del st.session_state[k]
+            st.rerun()
+        st.stop()
+
+    q = quiz[page]
+    st.markdown(f"### Q{page+1}. {q['question']}")
+    choice = st.radio("Choose an answer:", q["options"], key=f"q{page}")
+
+    if st.button("Next ➡"):
+        feedback = ""
+        if choice == q["answer"]:
+            st.session_state.score += 1
+            st.success("✅ Correct!")
+        else:
+            st.error(f"❌ Wrong! Correct: {q['answer']}")
+        feedback = ai_feedback(q['question'], choice, q['answer'])
+        st.markdown(f"<div class='feedback-box'>{feedback}</div>", unsafe_allow_html=True)
+        time.sleep(1.5)
+        st.session_state.page += 1
+        st.session_state.start_time = time.time()
         st.rerun()
