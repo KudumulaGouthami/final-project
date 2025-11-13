@@ -8,7 +8,6 @@ st.set_page_config(page_title="Smart Quiz App", page_icon="🎯", layout="center
 # ---------------- CSS STYLES ----------------
 st.markdown("""
 <style>
-/* ---- Global Background ---- */
 body {
     background: linear-gradient(-45deg, #ffecd2, #fcb69f, #a1c4fd, #c2e9fb);
     background-size: 400% 400%;
@@ -20,12 +19,8 @@ body {
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
-
-/* ---- Text Styling ---- */
 h1, h2, h3 {text-align:center; color:#333;}
 p {text-align:center; font-size:16px;}
-
-/* ---- Box Styling ---- */
 .login-box, .content-box {
     background: rgba(255, 255, 255, 0.88);
     padding: 30px; border-radius: 20px;
@@ -34,8 +29,6 @@ p {text-align:center; font-size:16px;}
     margin: auto;
     animation: fadeIn 1s ease-in;
 }
-
-/* ---- Buttons ---- */
 .stButton>button {
     background: linear-gradient(to right, #667eea, #764ba2);
     color:white; border-radius:8px;
@@ -47,23 +40,17 @@ p {text-align:center; font-size:16px;}
     background: linear-gradient(to right, #764ba2, #667eea);
     transform:scale(1.05);
 }
-
-/* ---- Timer ---- */
 .timer {
     color: #d32f2f; font-weight:bold;
     font-size:20px; text-align:center;
     margin-top:10px;
 }
-
-/* ---- Feedback Box ---- */
 .feedback-box {
     background: rgba(255,255,255,0.85);
     border-radius:10px; padding:10px 15px;
     box-shadow:0 3px 8px rgba(0,0,0,0.15);
     margin-top:10px; text-align:center;
 }
-
-/* ---- Fade Animation ---- */
 @keyframes fadeIn {
     from {opacity: 0; transform: translateY(25px);}
     to {opacity: 1; transform: translateY(0);}
@@ -83,8 +70,6 @@ def save_data(file, data):
 
 users = load_data(USER_FILE)
 leaderboard = load_data(LEADERBOARD_FILE)
-
-# ensure leaderboard is a dict
 if not isinstance(leaderboard, dict):
     leaderboard = {}
 
@@ -118,8 +103,6 @@ if "stage" not in st.session_state:
     st.session_state.stage = "home"
 if "user" not in st.session_state:
     st.session_state.user = None
-
-# session defaults for quiz-related keys for safety
 if "quiz" not in st.session_state:
     st.session_state.quiz = None
 if "page" not in st.session_state:
@@ -144,9 +127,6 @@ def login_user(username, password):
         st.session_state.user = username
         return True, "✅ Login successful!"
     return False, "❌ Invalid credentials."
-
-def ai_feedback(user_ans, correct_ans):
-    return "🌟 Excellent!" if user_ans == correct_ans else f"🤔 Oops! Correct: {correct_ans}"
 
 # ---------------- HOME ----------------
 if st.session_state.stage == "home":
@@ -181,7 +161,6 @@ elif st.session_state.stage == "login" and st.session_state.user is None:
         st.info(msg)
         if ok:
             st.session_state.stage = "quiz"
-            # initialize quiz state when user logs in
             st.session_state.quiz = None
             st.session_state.page = 0
             st.session_state.score = 0
@@ -194,7 +173,6 @@ elif st.session_state.stage == "quiz" and st.session_state.user:
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user = None
         st.session_state.stage = "home"
-        # clear quiz state
         st.session_state.quiz = None
         st.session_state.page = 0
         st.session_state.score = 0
@@ -204,13 +182,11 @@ elif st.session_state.stage == "quiz" and st.session_state.user:
     st.title("🧩 Smart Quiz Application")
     st.markdown("Select a category and start your quiz!")
 
-    # If no quiz prepared, show setup controls
     if not st.session_state.get("quiz"):
         cat = st.selectbox("📚 Category", list(quizzes.keys()))
         max_q = len(quizzes[cat])
         num_q = st.number_input("Number of questions", min_value=1, max_value=max_q, value=min(5, max_q), key="num_q")
         if st.button("Start Quiz ▶️"):
-            # create quiz and set session keys
             st.session_state.quiz = random.sample(quizzes[cat], num_q)
             st.session_state.page = 0
             st.session_state.score = 0
@@ -219,12 +195,10 @@ elif st.session_state.stage == "quiz" and st.session_state.user:
             st.rerun()
         st.stop()
 
-    # safe local copies
     quiz = st.session_state.get("quiz", [])
     page = st.session_state.get("page", 0)
     total = len(quiz)
 
-    # If somehow quiz became empty, reset
     if total == 0:
         st.warning("No questions available. Please restart the quiz.")
         if st.button("Restart Quiz Setup"):
@@ -232,63 +206,18 @@ elif st.session_state.stage == "quiz" and st.session_state.user:
             st.rerun()
         st.stop()
 
-    # Timer
-    total_time = 20  # seconds per question
+    # ---------------- LIVE TIMER FIX ----------------
+    total_time = 20
+    timer_placeholder = st.empty()
     elapsed = int(time.time() - st.session_state.get("start_time", time.time()))
     remaining = max(0, total_time - elapsed)
-    st.markdown(f"<div class='timer'>⏳ Time Left: {remaining} seconds</div>", unsafe_allow_html=True)
 
-    # If time expired -> auto-skip to next question
-    if remaining <= 0:
-        # advance page safely
-        st.session_state.page = st.session_state.get("page", 0) + 1
-        st.session_state.start_time = time.time()
+    timer_placeholder.markdown(f"<div class='timer'>⏳ Time Left: {remaining} seconds</div>", unsafe_allow_html=True)
+
+    if remaining > 0:
+        time.sleep(1)
         st.rerun()
-
-    # End of quiz
-    if page >= total:
-        st.balloons()
-        st.success(f"🎉 Quiz Completed — Score: {st.session_state.get('score', 0)}/{total}")
-        username = st.session_state.user
-        # ensure user exists in users dict
-        users.setdefault(username, {"password": users.get(username, {}).get("password", ""), "scores": []})
-        score_data = {"score": st.session_state.get('score', 0), "total": total, "category": st.session_state.get('cat', ''), "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-        users[username]["scores"].append(score_data)
-        save_data(USER_FILE, users)
-        # update leaderboard defensively
-        try:
-            leaderboard[username] = max(s["score"] for s in users[username]["scores"])
-        except Exception:
-            leaderboard[username] = st.session_state.get('score', 0)
-        save_data(LEADERBOARD_FILE, leaderboard)
-
-        st.subheader("🏆 Leaderboard (Top 5)")
-        for i, (u, sc) in enumerate(sorted(leaderboard.items(), key=lambda x: x[1], reverse=True)[:5], 1):
-            st.write(f"{i}. **{u}** — {sc} points")
-
-        if st.button("🔁 Restart"):
-            # clear quiz-specific state
-            for k in ["quiz", "page", "score", "start_time", "cat"]:
-                st.session_state.pop(k, None)
-            st.session_state.stage = "quiz"
-            st.rerun()
-        st.stop()
-
-    # Show current question
-    q = quiz[page]
-    st.markdown(f"### Q{page+1}. {q['question']}")
-    choice = st.radio("Choose an answer:", q["options"], key=f"q{page}")
-
-    if st.button("Next ➡️"):
-        if choice == q["answer"]:
-            st.session_state.score = st.session_state.get("score", 0) + 1
-            st.success("✅ Correct!")
-        else:
-            st.error(f"❌ Wrong! Correct: {q['answer']}")
-        # show feedback
-        feedback = "🌟 Excellent!" if choice == q["answer"] else f"🤔 Oops! Correct: {q['answer']}"
-        st.markdown(f"<div class='feedback-box'>{feedback}</div>", unsafe_allow_html=True)
-        # advance safely
-        st.session_state.page = st.session_state.get("page", 0) + 1
+    else:
+        st.session_state.page += 1
         st.session_state.start_time = time.time()
         st.rerun()
