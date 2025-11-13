@@ -2,6 +2,7 @@
 import streamlit as st
 import json, os, time, random
 from datetime import datetime
+import streamlit.components.v1 as components
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Smart Quiz App", page_icon="🎯", layout="centered")
@@ -9,6 +10,7 @@ st.set_page_config(page_title="Smart Quiz App", page_icon="🎯", layout="center
 # ---------------- CSS STYLES ----------------
 st.markdown("""
 <style>
+/* ---- Global Background ---- */
 body {
     background: linear-gradient(-45deg, #ffecd2, #fcb69f, #a1c4fd, #c2e9fb);
     background-size: 400% 400%;
@@ -20,8 +22,12 @@ body {
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
+
+/* ---- Text Styling ---- */
 h1, h2, h3 {text-align:center; color:#333;}
 p {text-align:center; font-size:16px;}
+
+/* ---- Box Styling ---- */
 .login-box, .content-box {
     background: rgba(255, 255, 255, 0.88);
     padding: 30px; border-radius: 20px;
@@ -30,6 +36,8 @@ p {text-align:center; font-size:16px;}
     margin: auto;
     animation: fadeIn 1s ease-in;
 }
+
+/* ---- Buttons ---- */
 .stButton>button {
     background: linear-gradient(to right, #667eea, #764ba2);
     color:white; border-radius:8px;
@@ -41,17 +49,23 @@ p {text-align:center; font-size:16px;}
     background: linear-gradient(to right, #764ba2, #667eea);
     transform:scale(1.05);
 }
+
+/* ---- Timer ---- */
 .timer {
     color: #d32f2f; font-weight:bold;
     font-size:20px; text-align:center;
     margin-top:10px;
 }
+
+/* ---- Feedback Box ---- */
 .feedback-box {
     background: rgba(255,255,255,0.85);
     border-radius:10px; padding:10px 15px;
     box-shadow:0 3px 8px rgba(0,0,0,0.15);
     margin-top:10px; text-align:center;
 }
+
+/* ---- Fade Animation ---- */
 @keyframes fadeIn {
     from {opacity: 0; transform: translateY(25px);}
     to {opacity: 1; transform: translateY(0);}
@@ -119,19 +133,33 @@ def login_user(username, password):
         return True, "✅ Login successful!"
     return False, "❌ Invalid credentials."
 
-def ai_feedback(user_ans, correct_ans):
-    return "🌟 Excellent!" if user_ans == correct_ans else f"🤔 Oops! Correct: {correct_ans}"
+def ai_feedback(question, user_ans, correct_ans):
+    if user_ans == correct_ans:
+        return "🌟 Excellent! You’ve mastered this question!"
+    else:
+        return f"🤔 Oops! The correct answer was **{correct_ans}**. Try revising this topic."
 
-# ---------------- HOME ----------------
+# ---------------- HOME PAGE ----------------
 if st.session_state.stage == "home":
     st.markdown("<h1>🎯 Welcome to Smart Quiz Application 🎯</h1>", unsafe_allow_html=True)
     st.image("https://cdn.dribbble.com/users/166903/screenshots/2685205/quiz.gif", use_container_width=True)
+    st.markdown("""
+    <div class='content-box'>
+        <h3>🧠 Test Your Knowledge!</h3>
+        <p>Challenge yourself with quizzes from <b>Programming</b>, <b>Maths</b>, and <b>General Knowledge</b>.<br>
+        Improve your skills while having fun! 💡</p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.image("https://cdn.dribbble.com/users/14268/screenshots/4107914/quiz-game.gif", use_container_width=True)
+    st.write("🚀 Ready to start your quiz journey?")
     if st.button("Start ▶️"):
         st.session_state.stage = "register"
         st.rerun()
+    st.stop()
 
-# ---------------- REGISTER ----------------
-elif st.session_state.stage == "register":
+# ---------------- REGISTER PAGE ----------------
+if st.session_state.stage == "register":
+    st.image("https://i.pinimg.com/originals/d3/06/7e/d3067e2d7d2d6f9a12dfbd00b9985b07.gif", use_container_width=True)
     st.subheader("📝 Register Here")
     username = st.text_input("Create Username")
     password = st.text_input("Create Password", type="password")
@@ -142,9 +170,11 @@ elif st.session_state.stage == "register":
             time.sleep(1)
             st.session_state.stage = "login"
             st.rerun()
+    st.stop()
 
-# ---------------- LOGIN ----------------
-elif st.session_state.stage == "login" and st.session_state.user is None:
+# ---------------- LOGIN PAGE ----------------
+if st.session_state.stage == "login" and st.session_state.user is None:
+    st.image("https://i.pinimg.com/originals/2f/d8/0b/2fd80b21c1ff8022a2b6c1e5de032eb5.gif", use_container_width=True)
     st.subheader("🔐 Login to Continue")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
@@ -154,9 +184,10 @@ elif st.session_state.stage == "login" and st.session_state.user is None:
         if ok:
             st.session_state.stage = "quiz"
             st.rerun()
+    st.stop()
 
-# ---------------- QUIZ ----------------
-elif st.session_state.stage == "quiz" and st.session_state.user:
+# ---------------- QUIZ PAGE ----------------
+if st.session_state.stage == "quiz" and st.session_state.user:
     st.sidebar.success(f"👤 Logged in as: {st.session_state.user}")
     if st.sidebar.button("🚪 Logout"):
         st.session_state.user = None
@@ -168,27 +199,29 @@ elif st.session_state.stage == "quiz" and st.session_state.user:
 
     if "quiz" not in st.session_state:
         cat = st.selectbox("📚 Category", list(quizzes.keys()))
-        num_q = st.number_input("Number of questions", 1, len(quizzes[cat]), value=min(5, len(quizzes[cat])))
+        num_q = st.number_input("Number of questions", 1, len(quizzes[cat]), min(5, len(quizzes[cat])))
         if st.button("Start Quiz ▶️"):
-            st.session_state.quiz = random.sample(quizzes[cat], num_q)
+            selected = random.sample(quizzes[cat], num_q)
+            st.session_state.quiz = selected
             st.session_state.page = 0
             st.session_state.score = 0
             st.session_state.start_time = time.time()
             st.session_state.cat = cat
             st.rerun()
+        st.stop()
 
     quiz = st.session_state.quiz
     page = st.session_state.page
     total = len(quiz)
 
-    # Timer display + auto next
-    total_time = 15
+    # Timer
+    total_time = 20
     elapsed = int(time.time() - st.session_state.start_time)
     remaining = max(0, total_time - elapsed)
-    st.markdown(f"<div class='timer'>⏳ Time Left: {remaining} sec</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='timer'>⏳ Time Left: {remaining} seconds</div>", unsafe_allow_html=True)
 
-    # Auto skip
-    if remaining == 0:
+    if remaining <= 0:
+        st.warning("⏰ Time's up for this question!")
         st.session_state.page += 1
         st.session_state.start_time = time.time()
         st.rerun()
@@ -208,23 +241,24 @@ elif st.session_state.stage == "quiz" and st.session_state.user:
             st.write(f"{i}. **{u}** — {sc} points")
         if st.button("🔁 Restart"):
             for k in ["quiz", "page", "score", "cat"]:
-                st.session_state.pop(k, None)
-            st.session_state.stage = "quiz"
+                if k in st.session_state: del st.session_state[k]
             st.rerun()
+        st.stop()
 
-    else:
-        q = quiz[page]
-        st.markdown(f"### Q{page+1}. {q['question']}")
-        choice = st.radio("Choose an answer:", q["options"], key=f"q{page}")
-        if st.button("Next ➡️"):
-            if choice == q["answer"]:
-                st.session_state.score += 1
-                st.success("✅ Correct!")
-            else:
-                st.error(f"❌ Wrong! Correct: {q['answer']}")
-            feedback = ai_feedback(choice, q['answer'])
-            st.markdown(f"<div class='feedback-box'>{feedback}</div>", unsafe_allow_html=True)
-            time.sleep(1.5)
-            st.session_state.page += 1
-            st.session_state.start_time = time.time()
-            st.rerun()
+    q = quiz[page]
+    st.markdown(f"### Q{page+1}. {q['question']}")
+    choice = st.radio("Choose an answer:", q["options"], key=f"q{page}")
+
+    if st.button("Next ➡️"):
+        feedback = ""
+        if choice == q["answer"]:
+            st.session_state.score += 1
+            st.success("✅ Correct!")
+        else:
+            st.error(f"❌ Wrong! Correct: {q['answer']}")
+        feedback = ai_feedback(q['question'], choice, q['answer'])
+        st.markdown(f"<div class='feedback-box'>{feedback}</div>", unsafe_allow_html=True)
+        time.sleep(1.5)
+        st.session_state.page += 1
+        st.session_state.start_time = time.time()
+        st.rerun()
