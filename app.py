@@ -2,84 +2,104 @@
 
 
 
-import streamlit as st
-import time
-import random
+       import streamlit as st
+import json, os, time, random
+from datetime import datetime
+import streamlit.components.v1 as components
 
-# ------------------ PAGE SETUP ------------------
-st.set_page_config(page_title="Quiz App", page_icon="🎯")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(page_title="Smart Quiz App", page_icon="🎯", layout="centered")
 
-# ------------------ QUESTION BANK ------------------
-questions_bank = [
-    {"q": "Python is developed by?", "options": ["James", "Guido van Rossum", "Dennis", "Bjarne"], "ans": "Guido van Rossum"},
-    {"q": "2 + 5 =", "options": ["5", "6", "7", "8"], "ans": "7"},
-    {"q": "HTML stands for?", "options": ["Hyper Text Markup Language", "High Text Machine", "Home Tool", "None"], "ans": "Hyper Text Markup Language"},
-    {"q": "CSS is used for?", "options": ["Logic", "Database", "Styling", "Backend"], "ans": "Styling"},
-    {"q": "5 × 6 =", "options": ["25", "30", "35", "40"], "ans": "30"},
-    {"q": "Sun rises in?", "options": ["West", "North", "East", "South"], "ans": "East"},
-    {"q": "Which is a loop?", "options": ["if", "for", "print", "def"], "ans": "for"}
-]
+# ---------------- DATA FILES ----------------
+USER_FILE = "users.json"
+LEADERBOARD_FILE = "leaderboard.json"
 
-# ------------------ SESSION INIT ------------------
+def load_data(file):
+    return json.load(open(file)) if os.path.exists(file) else {}
+
+def save_data(file, data):
+    json.dump(data, open(file, "w"), indent=4)
+
+users = load_data(USER_FILE)
+leaderboard = load_data(LEADERBOARD_FILE)
+
+# ---------------- QUIZ BANK ----------------
+quizzes = {
+    "Programming": [
+        {"question": "Which company developed Java?", "options": ["Microsoft","Oracle","Sun Microsystems","Google"], "answer": "Sun Microsystems"},
+        {"question": "Which symbol is used for comments in Python?", "options": ["#","//","/* */","<!-- -->"], "answer": "#"},
+        {"question": "HTML stands for?", "options": ["Hyper Text Markup Language","HighText Machine Language","Hyperlinks and Text Markup Language","None"], "answer": "Hyper Text Markup Language"},
+        {"question": "CSS stands for?", "options": ["Cascading Style Sheets","Color Style Syntax","Coding Style System","Central Sheet Style"], "answer": "Cascading Style Sheets"},
+        {"question": "Which keyword is used to create a function in Python?", "options": ["def","func","lambda","function"], "answer": "def"}
+    ]
+}
+
+# ---------------- SESSION SETUP ----------------
 if "quiz" not in st.session_state:
-    st.session_state.quiz = random.sample(questions_bank, len(questions_bank))
-    st.session_state.index = 0
-    st.session_state.score = 0
-    st.session_state.start_time = time.time()
 
-# ------------------ FUNCTIONS ------------------
-def restart_quiz():
-    st.session_state.quiz = random.sample(questions_bank, len(questions_bank))  # shuffle
-    st.session_state.index = 0
-    st.session_state.score = 0
-    st.session_state.start_time = time.time()
-    st.rerun()
+    cat = st.selectbox("Category", list(quizzes.keys()))
 
-# ------------------ TITLE ------------------
-st.title("🎯 Smart Quiz Application")
+    if st.button("Start Quiz ▶"):
 
-# ------------------ FINISH SCREEN ------------------
-if st.session_state.index >= len(st.session_state.quiz):
-    st.success(f"✅ Quiz Completed!\n\nScore: {st.session_state.score}/{len(st.session_state.quiz)}")
+        selected = random.sample(quizzes[cat], len(quizzes[cat]))
 
-    if st.button("🔁 Restart Quiz"):
-        restart_quiz()
+        # ✅ ADDED → shuffle questions every attempt
+        random.shuffle(selected)
+
+        st.session_state.quiz = selected
+        st.session_state.page = 0
+        st.session_state.score = 0
+        st.session_state.start_time = time.time()
+
+        st.rerun()
 
     st.stop()
 
-# ------------------ CURRENT QUESTION ------------------
-question = st.session_state.quiz[st.session_state.index]
 
-st.subheader(f"Question {st.session_state.index + 1}")
-st.write(question["q"])
+quiz = st.session_state.quiz
+page = st.session_state.page
+total = len(quiz)
 
-# ------------------ TIMER ------------------
-TOTAL_TIME = 15
-
+# ---------------- TIMER ----------------
+total_time = 20
 elapsed = int(time.time() - st.session_state.start_time)
-remaining = max(0, TOTAL_TIME - elapsed)
+remaining = max(0, total_time - elapsed)
 
-timer_placeholder = st.empty()
-timer_placeholder.markdown(f"⏳ Time Left: **{remaining} seconds**")
+st.write(f"⏳ Time Left: {remaining} seconds")
 
-# auto refresh every second
+# ✅ ADDED → continuous running timer
 time.sleep(1)
 st.rerun()
 
-# ------------------ TIME UP ------------------
-if remaining == 0:
-    st.warning("⏰ Time Up!")
-    st.session_state.index += 1
+# ---------------- TIME OVER ----------------
+if remaining <= 0:
+    st.session_state.page += 1
     st.session_state.start_time = time.time()
     st.rerun()
 
-# ------------------ OPTIONS ------------------
-choice = st.radio("Choose answer:", question["options"], key=f"q{st.session_state.index}")
+# ---------------- FINISH ----------------
+if page >= total:
+    st.success(f"Score: {st.session_state.score}/{total}")
 
-if st.button("Next"):
-    if choice == question["ans"]:
+    if st.button("Restart"):
+        del st.session_state.quiz
+        st.rerun()
+
+    st.stop()
+
+# ---------------- QUESTION ----------------
+q = quiz[page]
+
+st.write(f"### Q{page+1}. {q['question']}")
+
+choice = st.radio("Choose:", q["options"])
+
+if st.button("Next ➡"):
+
+    if choice == q["answer"]:
         st.session_state.score += 1
 
-    st.session_state.index += 1
+    st.session_state.page += 1
     st.session_state.start_time = time.time()
+
     st.rerun()
