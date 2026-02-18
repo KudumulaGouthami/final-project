@@ -2,7 +2,7 @@
 
 
 
-    import streamlit as st
+import streamlit as st
 import json
 import os
 import time
@@ -200,3 +200,4 @@ if st.session_state.stage == "result":
         st.session_state.quiz = None
         st.session_state.stage = "quiz"
         st.rerun()
+
